@@ -17,7 +17,7 @@ const createLog = async (ipfs, logId) => {
   const access = new AccessController()
   const keystore = new Keystore(store)
   const identity = await IdentityProvider.createIdentity({ id: 'userA', keystore })
-  const log = new Log(ipfs, identity, { logId: 'A', access })
+  const log = new Log(ipfs, identity, { logId: 'A', access, cacheSize: 5 })
   return { log, access, identity }
 }
 

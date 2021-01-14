@@ -62,16 +62,11 @@ Object.keys(testAPIs).forEach((IPFS) => {
         const log = new Log(ipfs, testIdentity)
         assert.notStrictEqual(log._entryIndex, null)
         assert.notStrictEqual(log._headsIndex, null)
+        assert.notStrictEqual(log._hashIndex, new Map())
         assert.notStrictEqual(log._id, null)
         assert.notStrictEqual(log.id, null)
         assert.notStrictEqual(log.clock, null)
-        assert.notStrictEqual(log.values, null)
         assert.notStrictEqual(log.heads, null)
-        assert.notStrictEqual(log.tails, null)
-        assert.notStrictEqual(log.tailCids, null)
-        assert.deepStrictEqual(log.values, [])
-        assert.deepStrictEqual(log.heads, [])
-        assert.deepStrictEqual(log.tails, [])
       })
 
       it('throws an error if IPFS instance is not passed as an argument', () => {
@@ -106,10 +101,11 @@ Object.keys(testAPIs).forEach((IPFS) => {
         const three = await Entry.create(ipfs, testIdentity, 'A', 'entryC', [], new Clock('C', 0))
         const log = new Log(ipfs, testIdentity,
           { logId: 'A', entries: [one, two, three] })
+        const values = await log.values()
         assert.strictEqual(log.length, 3)
-        assert.strictEqual(log.values[0].payload, 'entryA')
-        assert.strictEqual(log.values[1].payload, 'entryB')
-        assert.strictEqual(log.values[2].payload, 'entryC')
+        assert.strictEqual(values[0].payload, 'entryA')
+        assert.strictEqual(values[1].payload, 'entryB')
+        assert.strictEqual(values[2].payload, 'entryC')
       })
 
       it('sets heads if given as params', async () => {
@@ -188,8 +184,9 @@ Object.keys(testAPIs).forEach((IPFS) => {
         await log.append('five')
       })
 
-      it('returns a nicely formatted string', () => {
-        assert.strictEqual(log.toString(), expectedData)
+      it('returns a nicely formatted string', async () => {
+        const logString = await log.toString()
+        assert.strictEqual(logString, expectedData)
       })
     })
 
@@ -201,13 +198,14 @@ Object.keys(testAPIs).forEach((IPFS) => {
         await log.append('one')
       })
 
-      it('returns an Entry', () => {
-        const entry = log.get(log.values[0].hash)
+      it('returns an Entry', async () => {
+        const values = await log.values()
+        const entry = await log.get(values[0].hash)
         assert.deepStrictEqual(entry.hash, 'zdpuAoFzNYcuuQHk1gLcB8fomHGrqT9k1uQeAvewZJ1cSYrms')
       })
 
-      it('returns undefined when Entry is not in the log', () => {
-        const entry = log.get('QmFoo')
+      it('returns undefined when Entry is not in the log', async () => {
+        const entry = await log.get('QmFoo')
         assert.deepStrictEqual(entry, undefined)
       })
     })
@@ -221,16 +219,19 @@ Object.keys(testAPIs).forEach((IPFS) => {
       })
 
       it('changes identity', async () => {
-        assert.strictEqual(log.values[0].clock.id, testIdentity.publicKey)
-        assert.strictEqual(log.values[0].clock.time, 1)
+        let values = await log.values()
+        assert.strictEqual(values[0].clock.id, testIdentity.publicKey)
+        assert.strictEqual(values[0].clock.time, 1)
         log.setIdentity(testIdentity2)
         await log.append('two')
-        assert.strictEqual(log.values[1].clock.id, testIdentity2.publicKey)
-        assert.strictEqual(log.values[1].clock.time, 2)
+        values = await log.values()
+        assert.strictEqual(values[1].clock.id, testIdentity2.publicKey)
+        assert.strictEqual(values[1].clock.time, 2)
         log.setIdentity(testIdentity3)
         await log.append('three')
-        assert.strictEqual(log.values[2].clock.id, testIdentity3.publicKey)
-        assert.strictEqual(log.values[2].clock.time, 3)
+        values = await log.values()
+        assert.strictEqual(values[2].clock.id, testIdentity3.publicKey)
+        assert.strictEqual(values[2].clock.time, 3)
       })
     })
 
@@ -301,8 +302,8 @@ Object.keys(testAPIs).forEach((IPFS) => {
           ]
         }
 
-        it('returns the log snapshot', () => {
-          const snapshot = log.toSnapshot()
+        it('returns the log snapshot', async () => {
+          const snapshot = await log.toSnapshot()
           assert.strictEqual(snapshot.id, expectedData.id)
           assert.strictEqual(snapshot.heads.length, expectedData.heads.length)
           assert.strictEqual(snapshot.heads[0].hash, expectedData.heads[0])
@@ -403,23 +404,25 @@ Object.keys(testAPIs).forEach((IPFS) => {
           await log.append('one')
           const hash = await log.toMultihash()
           const res = await Log.fromMultihash(ipfs, testIdentity, hash, -1)
+          const values = await res.values()
           assert.strictEqual(JSON.stringify(res.toJSON()), JSON.stringify(expectedData))
           assert.strictEqual(res.length, 1)
-          assert.strictEqual(res.values[0].payload, 'one')
-          assert.strictEqual(res.values[0].clock.id, testIdentity.publicKey)
-          assert.strictEqual(res.values[0].clock.time, 1)
+          assert.strictEqual(values[0].payload, 'one')
+          assert.strictEqual(values[0].clock.id, testIdentity.publicKey)
+          assert.strictEqual(values[0].clock.time, 1)
         })
 
         it('creates a log from ipfs CID - three entries', async () => {
           const hash = await log.toMultihash()
           const res = await Log.fromMultihash(ipfs, testIdentity, hash, -1)
+          const values = await res.values()
           assert.strictEqual(res.length, 3)
-          assert.strictEqual(res.values[0].payload, 'one')
-          assert.strictEqual(res.values[0].clock.time, 1)
-          assert.strictEqual(res.values[1].payload, 'two')
-          assert.strictEqual(res.values[1].clock.time, 2)
-          assert.strictEqual(res.values[2].payload, 'three')
-          assert.strictEqual(res.values[2].clock.time, 3)
+          assert.strictEqual(values[0].payload, 'one')
+          assert.strictEqual(values[0].clock.time, 1)
+          assert.strictEqual(values[1].payload, 'two')
+          assert.strictEqual(values[1].clock.time, 2)
+          assert.strictEqual(values[2].payload, 'three')
+          assert.strictEqual(values[2].clock.time, 3)
         })
 
         it('creates a log from ipfs multihash (backwards compat)', async () => {
@@ -431,21 +434,24 @@ Object.keys(testAPIs).forEach((IPFS) => {
           await log.append('one')
           const multihash = await log.toMultihash()
           const res = await Log.fromMultihash(ipfs, testIdentity, multihash, { length: -1 })
+          const values = await res.values()
           assert.strictEqual(JSON.stringify(res.toJSON()), JSON.stringify(expectedData))
           assert.strictEqual(res.length, 1)
-          assert.strictEqual(res.values[0].payload, 'one')
-          assert.strictEqual(res.values[0].clock.id, testIdentity.publicKey)
-          assert.strictEqual(res.values[0].clock.time, 1)
+          assert.strictEqual(values[0].payload, 'one')
+          assert.strictEqual(values[0].clock.id, testIdentity.publicKey)
+          assert.strictEqual(values[0].clock.time, 1)
         })
 
         it('has the right sequence number after creation and appending', async () => {
           const hash = await log.toMultihash()
           const res = await Log.fromMultihash(ipfs, testIdentity, hash, { length: -1 })
+          let values = await res.values()
           assert.strictEqual(res.length, 3)
           await res.append('four')
+          values = await res.values()
           assert.strictEqual(res.length, 4)
-          assert.strictEqual(res.values[3].payload, 'four')
-          assert.strictEqual(res.values[3].clock.time, 4)
+          assert.strictEqual(values[3].payload, 'four')
+          assert.strictEqual(values[3].clock.time, 4)
         })
 
         it('creates a log from ipfs CID that has three heads', async () => {
@@ -561,7 +567,7 @@ Object.keys(testAPIs).forEach((IPFS) => {
             await log.append(i.toString())
           }
 
-          const items = log.values
+          const items = await log.values()
           let i = 0
           const loadProgressCallback = (entry) => {
             assert.notStrictEqual(entry, null)
@@ -574,13 +580,14 @@ Object.keys(testAPIs).forEach((IPFS) => {
           const result = await Log.fromMultihash(ipfs, testIdentity, hash,
             { length: -1, exclude: [], onProgressCallback: loadProgressCallback })
 
+          const values = await result.values()
           // Make sure the onProgress callback was called for each entry
           assert.strictEqual(i, amount)
           // Make sure the log entries are correct ones
-          assert.strictEqual(result.values[0].clock.time, 1)
-          assert.strictEqual(result.values[0].payload, '0')
-          assert.strictEqual(result.values[result.length - 1].clock.time, 100)
-          assert.strictEqual(result.values[result.length - 1].payload, '99')
+          assert.strictEqual(values[0].clock.time, 1)
+          assert.strictEqual(values[0].payload, '0')
+          assert.strictEqual(values[result.length - 1].clock.time, 100)
+          assert.strictEqual(values[result.length - 1].payload, '99')
         })
       })
 
@@ -641,16 +648,18 @@ Object.keys(testAPIs).forEach((IPFS) => {
     describe('values', () => {
       it('returns all entries in the log', async () => {
         const log = new Log(ipfs, testIdentity)
-        assert.strictEqual(log.values instanceof Array, true)
+        let values = await log.values()
+        assert.strictEqual(values instanceof Array, true)
         assert.strictEqual(log.length, 0)
         await log.append('hello1')
         await log.append('hello2')
         await log.append('hello3')
-        assert.strictEqual(log.values instanceof Array, true)
+        values = await log.values()
+        assert.strictEqual(values instanceof Array, true)
         assert.strictEqual(log.length, 3)
-        assert.strictEqual(log.values[0].payload, 'hello1')
-        assert.strictEqual(log.values[1].payload, 'hello2')
-        assert.strictEqual(log.values[2].payload, 'hello3')
+        assert.strictEqual(values[0].payload, 'hello1')
+        assert.strictEqual(values[1].payload, 'hello2')
+        assert.strictEqual(values[2].payload, 'hello3')
       })
     })
   })
