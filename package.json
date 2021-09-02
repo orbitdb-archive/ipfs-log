@@ -22,7 +22,7 @@
     "json-stringify-deterministic": "^1.0.1",
     "multihashing-async": "^2.1.2",
     "orbit-db-identity-provider": "~0.3.1",
-    "orbit-db-io": "~0.4.0",
+    "orbit-db-io": "orbitdb/orbit-db-io#tagv030-add-options-arg",
     "p-do-whilst": "^1.1.0",
     "p-each-series": "^2.2.0",
     "p-map": "^4.0.0",
