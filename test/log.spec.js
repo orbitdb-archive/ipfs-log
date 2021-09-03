@@ -532,11 +532,8 @@ Object.keys(testAPIs).forEach((IPFS) => {
         })
 
         it('throws an error if data from hash is not valid JSON', async () => {
-          const dagNode = dagPB.createNode('hello')
-          const cid = await ipfs.dag.put(dagNode, {
-            hashAlg: 'sha2-256',
-            format: 'dag-pb'
-          })
+          const value = 'hello'
+          const cid = CID.parse(await io.write(ipfs, 'dag-pb', value))
           let err
           try {
             const hash = cid.toString(base58btc)
