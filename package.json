@@ -21,7 +21,7 @@
   "dependencies": {
     "json-stringify-deterministic": "^1.0.1",
     "multihashing-async": "^2.0.1",
-    "orbit-db-identity-provider": "^0.4.0",
+    "orbit-db-identity-provider": "^0.3.1",
     "orbit-db-io": "github:tabcat/orbit-db-io#upgrade-ipfs",
     "p-do-whilst": "^1.1.0",
     "p-each-series": "^2.1.0",
