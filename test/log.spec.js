@@ -2,7 +2,6 @@
 
 const assert = require('assert')
 const rmrf = require('rimraf')
-const dagPB = require('@ipld/dag-pb')
 const { CID } = require('multiformats/cid')
 const { base58btc } = require('multiformats/bases/base58')
 const Clock = require('../src/lamport-clock')
