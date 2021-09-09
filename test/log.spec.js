@@ -2,7 +2,8 @@
 
 const assert = require('assert')
 const rmrf = require('rimraf')
-const dagPB = require('ipld-dag-pb')
+const { CID } = require('multiformats/cid')
+const { base58btc } = require('multiformats/bases/base58')
 const Clock = require('../src/lamport-clock')
 const Entry = require('../src/entry')
 const Log = require('../src/log')
@@ -338,7 +339,7 @@ Object.keys(testAPIs).forEach((IPFS) => {
           const hash = await log.toMultihash()
           assert.strictEqual(hash, expectedCid)
           const result = await io.read(ipfs, hash)
-          const heads = result.heads.map(head => head.toBaseEncodedString('base58btc'))
+          const heads = result.heads.map(head => head.toString(base58btc))
           assert.deepStrictEqual(heads, expectedData.heads)
         })
 
@@ -374,7 +375,7 @@ Object.keys(testAPIs).forEach((IPFS) => {
           await log.append('one')
           const multihash = await log.toMultihash({ format: 'dag-pb' })
           assert.strictEqual(multihash, expectedMultihash)
-          const result = await ipfs.object.get(multihash)
+          const result = await ipfs.object.get(CID.parse(multihash))
           const res = JSON.parse(Buffer.from(result.Data).toString())
           assert.deepStrictEqual(res.heads, expectedData.heads)
         })
@@ -530,14 +531,11 @@ Object.keys(testAPIs).forEach((IPFS) => {
         })
 
         it('throws an error if data from hash is not valid JSON', async () => {
-          const dagNode = new dagPB.DAGNode(Buffer.from('hello'))
-          const cid = await ipfs.dag.put(dagNode, {
-            hashAlg: 'sha2-256',
-            format: 'dag-pb'
-          })
+          const value = 'hello'
+          const cid = CID.parse(await io.write(ipfs, 'dag-pb', value))
           let err
           try {
-            const hash = cid.toBaseEncodedString()
+            const hash = cid.toString(base58btc)
             await Log.fromMultihash(ipfs, testIdentity, hash)
           } catch (e) {
             err = e

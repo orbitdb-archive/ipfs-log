@@ -3,6 +3,7 @@
 const glob = require('glob')
 const webpack = require('webpack')
 const path = require('path')
+const NodePolyfillPlugin = require('node-polyfill-webpack-plugin')
 
 module.exports = {
   // TODO: put all tests in a .js file that webpack can use as entry point
@@ -12,13 +13,15 @@ module.exports = {
   },
   target: 'web',
   devtool: 'source-map',
+  mode: 'development',
   plugins: [
     new webpack.DefinePlugin({
       'process.env': {
         NODE_ENV: JSON.stringify(process.env.NODE_ENV)
       }
     }),
-    new webpack.IgnorePlugin(/mongo|redis/)
+    new webpack.IgnorePlugin(/mongo|redis/),
+    new NodePolyfillPlugin()
   ],
   externals: {
     fs: '{ existsSync: () => true }',
