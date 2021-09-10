@@ -53,6 +53,7 @@
     "mocha": "^8.4.0",
     "mocha-headless-chrome": "^3.1.0",
     "node-polyfill-webpack-plugin": "^1.1.4",
+    "node-pre-gyp": "^0.13.0",
     "nyc": "^15.0.1",
     "orbit-db-benchmark-runner": "^1.0.3",
     "orbit-db-storage-adapter": "^0.5.3",
