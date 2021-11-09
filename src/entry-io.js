@@ -25,7 +25,8 @@ class EntryIO {
    * @param {Object} [all] Entries to skip
    * @param {Number} [amount=-1] How many entries to fetch
    * @param {Number} [depth=0] Current depth of the recursion
-   * @param {function(hash, entry, parent, depth)} onProgressCallback
+   * @param {function(entry)} shouldExclude A function that can be passed to determine whether a specific hash should be excluded, ie. not fetched. The function should return true to indicate exclusion, otherwise return false.
+   * @param {function(entry)} onProgressCallback Called when an entry was fetched
    * @returns {Promise<Array<Entry>>}
    */
   static async fetchAll (ipfs, hashes, { length = -1, exclude = [], shouldExclude, timeout, onProgressCallback, onStartProgressCallback, concurrency = 32, delay = 0 } = {}) {
