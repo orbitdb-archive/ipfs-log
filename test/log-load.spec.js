@@ -250,13 +250,10 @@ Object.keys(testAPIs).forEach((IPFS) => {
         }
 
         let i = 0
-        const callback = (hash, entry, depth) => {
+        const callback = (entry) => {
           assert.notStrictEqual(entry, null)
-          assert.strictEqual(hash, items1[items1.length - i - 1].hash)
           assert.strictEqual(entry.hash, items1[items1.length - i - 1].hash)
           assert.strictEqual(entry.payload, items1[items1.length - i - 1].payload)
-          assert.strictEqual(depth - 1, i)
-
           i++
         }
 

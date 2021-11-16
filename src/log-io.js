@@ -38,7 +38,7 @@ class LogIO {
    * @param {function(hash, entry, parent, depth)} options.onProgressCallback
    */
   static async fromMultihash (ipfs, hash,
-    { length = -1, exclude = [], timeout, concurrency, sortFn, onProgressCallback }) {
+    { length = -1, exclude = [], shouldExclude, timeout, concurrency, sortFn, onProgressCallback }) {
     if (!isDefined(ipfs)) throw LogError.IPFSNotDefinedError()
     if (!isDefined(hash)) throw new Error(`Invalid hash: ${hash}`)
 
@@ -51,7 +51,7 @@ class LogIO {
     const isHead = e => logData.heads.includes(e.hash)
 
     const all = await EntryIO.fetchAll(ipfs, logData.heads,
-      { length, exclude, timeout, concurrency, onProgressCallback })
+      { length, exclude, shouldExclude, timeout, concurrency, onProgressCallback })
 
     const logId = logData.id
     const entries = length > -1 ? last(all.sort(sortFn), length) : all
@@ -69,7 +69,7 @@ class LogIO {
    * @param {function(hash, entry, parent, depth)} options.onProgressCallback
    */
   static async fromEntryHash (ipfs, hash,
-    { length = -1, exclude = [], timeout, concurrency, sortFn, onProgressCallback }) {
+    { length = -1, exclude = [], shouldExclude, timeout, concurrency, sortFn, onProgressCallback }) {
     if (!isDefined(ipfs)) throw LogError.IpfsNotDefinedError()
     if (!isDefined(hash)) throw new Error("'hash' must be defined")
     // Convert input hash(s) to an array
@@ -77,7 +77,7 @@ class LogIO {
     // Fetch given length, return size at least the given input entries
     length = length > -1 ? Math.max(length, 1) : length
     const all = await EntryIO.fetchParallel(ipfs, hashes,
-      { length, exclude, timeout, concurrency, onProgressCallback })
+      { length, exclude, shouldExclude, timeout, concurrency, onProgressCallback })
     // Cap the result at the right size by taking the last n entries,
     // or if given length is -1, then take all
     sortFn = sortFn || NoZeroes(LastWriteWins)
@@ -114,7 +114,7 @@ class LogIO {
    * @param {function(hash, entry, parent, depth)} options.onProgressCallback
    */
   static async fromEntry (ipfs, sourceEntries,
-    { length = -1, exclude = [], timeout, concurrency, onProgressCallback }) {
+    { length = -1, exclude = [], shouldExclude, timeout, concurrency, onProgressCallback }) {
     if (!isDefined(ipfs)) throw LogError.IPFSNotDefinedError()
     if (!isDefined(sourceEntries)) throw new Error("'sourceEntries' must be defined")
 
@@ -135,7 +135,7 @@ class LogIO {
 
     // Fetch the entries
     const all = await EntryIO.fetchParallel(ipfs, hashes,
-      { length, exclude, timeout, concurrency, onProgressCallback })
+      { length, exclude, shouldExclude, timeout, concurrency, onProgressCallback })
 
     // Combine the fetches with the source entries and take only uniques
     const combined = sourceEntries.concat(all).concat(exclude)

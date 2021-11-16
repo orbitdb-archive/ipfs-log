@@ -563,12 +563,10 @@ Object.keys(testAPIs).forEach((IPFS) => {
 
           const items = log.values
           let i = 0
-          const loadProgressCallback = (hash, entry, depth) => {
+          const loadProgressCallback = (entry) => {
             assert.notStrictEqual(entry, null)
-            assert.strictEqual(hash, items[items.length - i - 1].hash)
             assert.strictEqual(entry.hash, items[items.length - i - 1].hash)
             assert.strictEqual(entry.payload, items[items.length - i - 1].payload)
-            assert.strictEqual(depth - 1, i)
             i++
           }
 
