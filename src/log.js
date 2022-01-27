@@ -73,6 +73,7 @@ class Log extends GSet {
     this._sortFn = NoZeroes(sortFn)
 
     this._storage = ipfs
+    this._ipfs = ipfs
     this._id = logId || randomId()
 
     // Access Controller
@@ -82,7 +83,7 @@ class Log extends GSet {
 
     // Add entries to the internal cache
     const uniqueEntries = (entries || []).reduce(uniqueEntriesReducer, {})
-    this._entryIndex = new EntryIndex(uniqueEntries)
+    // this._entryIndex = new EntryIndex(uniqueEntries)
     entries = Object.values(uniqueEntries) || []
 
     // Set heads if not passed as an argument
@@ -182,7 +183,8 @@ class Log extends GSet {
    * @returns {Entry|undefined}
    */
   get (hash) {
-    return this._entryIndex.get(hash)
+    return Entry.fromMultihash(this._ipfs, hash)
+    // return this._entryIndex.get(hash)
   }
 
   /**
@@ -191,12 +193,17 @@ class Log extends GSet {
    * @returns {boolean}
    */
   has (entry) {
-    return this._entryIndex.get(entry.hash || entry) !== undefined
+    return this.get(entry.hash || entry) !== undefined
+    // return this._entryIndex.get(entry.hash || entry) !== undefined
   }
 
-  traverse (rootEntries, amount = -1, endHash) {
+  // traverse (rootEntries, amount = -1, endHash) {
+  async* traverse (rootEntries, shouldStopFn) {
+    const defaultStopFn = () => false
+    shouldStopFn = shouldStopFn || defaultStopFn
     // Sort the given given root entries and use as the starting stack
-    let stack = rootEntries.sort(this._sortFn).reverse()
+    // let stack = rootEntries.sort(this._sortFn).reverse()
+    let stack = rootEntries.sort(this._sortFn).reverse().map(e => e.hash)
 
     // Cache for checking if we've processed an entry already
     let traversed = {}
@@ -204,51 +211,43 @@ class Log extends GSet {
     const result = {}
     let count = 0
     // Named function for getting an entry from the log
-    const getEntry = e => this.get(e)
+    // const getEntry = e => this.get(e)
 
     // Add an entry to the stack and traversed nodes index
-    const addToStack = entry => {
+    const addToStack = hash => {
       // If we've already processed the entry, don't add it to the stack
-      if (!entry || traversed[entry.hash]) {
+      // if (!entry || traversed[entry.hash]) {
+      if (traversed[hash]) {
         return
       }
 
       // Add the entry in front of the stack and sort
-      stack = [entry, ...stack]
-        .sort(this._sortFn)
+      stack = [hash, ...stack]
+        // .sort(this._sortFn) // TODO: get entry data and sort
         .reverse()
       // Add to the cache of processed entries
-      traversed[entry.hash] = true
-    }
-
-    const addEntry = rootEntry => {
-      result[rootEntry.hash] = rootEntry
-      traversed[rootEntry.hash] = true
-      count++
+      traversed[hash] = true
     }
 
     // Start traversal
     // Process stack until it's empty (traversed the full log)
     // or when we have the requested amount of entries
     // If requested entry amount is -1, traverse all
-    while (stack.length > 0 && (count < amount || amount < 0)) { // eslint-disable-line no-unmodified-loop-condition
+    // while (stack.length > 0 && (count < amount || amount < 0)) { // eslint-disable-line no-unmodified-loop-condition
+    while (stack.length > 0 && !(await shouldStopFn(result))) { // eslint-disable-line no-unmodified-loop-condition
       // Get the next element from the stack
-      const entry = stack.shift()
+      const hash = stack.shift()
       // Add to the result
-      addEntry(entry)
-      // If it is the specified end hash, break out of the while loop
-      if (endHash && endHash === entry.hash) break
-
-      // Add entry's next references to the stack
-      const entries = entry.next.map(getEntry)
-      const defined = entries.filter(isDefined)
-      defined.forEach(addToStack)
+      const entry = await this.get(hash)
+      traversed[entry.hash] = true
+      result[entry.hash] = entry // TODO: change to an array
+      // addEntry(entry)
+      entry.next.forEach(addToStack)
+      yield entry
     }
 
     stack = []
     traversed = {}
-    // End result
-    return result
   }
 
   /**
@@ -261,7 +260,15 @@ class Log extends GSet {
     const newTime = Math.max(this.clock.time, this.heads.reduce(maxClockTimeReducer, 0)) + 1
     this._clock = new Clock(this.clock.id, newTime)
 
-    const all = Object.values(this.traverse(this.heads, Math.max(pointerCount, this.heads.length)))
+    const shouldStop = async (res) => {
+      return Object.values(res).length === Math.max(pointerCount, this.heads.length)
+    }
+
+    // const all = Object.values(this.traverse(this.heads, Math.max(pointerCount, this.heads.length)))
+    let all = []
+    for await (let e of this.traverse(this.heads, shouldStop)) {
+      all.push(e)
+    }
 
     // If pointer count is 4, returns 2
     // If pointer count is 8, returns 3 references
@@ -305,7 +312,7 @@ class Log extends GSet {
       throw new Error(`Could not append entry, key "${this._identity.id}" is not allowed to write to the log`)
     }
 
-    this._entryIndex.set(entry.hash, entry)
+    // this._entryIndex.set(entry.hash, entry)
     nexts.forEach(e => (this._nextsIndex[e] = entry.hash))
     this._headsIndex = {}
     this._headsIndex[entry.hash] = entry
@@ -426,7 +433,7 @@ class Log extends GSet {
     Object.values(newItems).forEach(addToNextsIndex)
 
     // Update the internal entry index
-    this._entryIndex.add(newItems)
+    // this._entryIndex.add(newItems)
 
     // Merge the heads
     const notReferencedByNewItems = e => !nextsFromNewItems.find(a => a === e.hash)
@@ -440,14 +447,14 @@ class Log extends GSet {
     this._headsIndex = mergedHeads
 
     // Slice to the requested size
-    if (size > -1) {
-      let tmp = this.values
-      tmp = tmp.slice(-size)
-      this._entryIndex = null
-      this._entryIndex = new EntryIndex(tmp.reduce(uniqueEntriesReducer, {}))
-      this._headsIndex = Log.findHeads(tmp).reduce(uniqueEntriesReducer, {})
-      this._length = this._entryIndex.length
-    }
+    // if (size > -1) {
+    //   let tmp = this.values
+    //   tmp = tmp.slice(-size)
+    //   this._entryIndex = null
+    //   this._entryIndex = new EntryIndex(tmp.reduce(uniqueEntriesReducer, {}))
+    //   this._headsIndex = Log.findHeads(tmp).reduce(uniqueEntriesReducer, {})
+    //   this._length = this._entryIndex.length
+    // }
 
     // Find the latest clock from the heads
     const maxClock = Object.values(this._headsIndex).reduce(maxClockTimeReducer, 0)
