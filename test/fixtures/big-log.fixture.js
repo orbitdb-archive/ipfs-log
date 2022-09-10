@@ -1,4 +1,4 @@
-module.exports = `DONE
+export default `DONE
 └─EOF
   └─entryC10
     └─entryB10
