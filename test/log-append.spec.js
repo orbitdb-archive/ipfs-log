@@ -1,14 +1,17 @@
 'use strict'
 
 import { strictEqual } from 'assert'
-import { sync } from 'rimraf'
+import rimraf from 'rimraf'
 import { copy } from 'fs-extra'
-import Log from '../src/log'
-import { createIdentity } from 'orbit-db-identity-provider'
+import Log from '../src/log.js'
+import IdentityProvider from 'orbit-db-identity-provider'
 import Keystore from 'orbit-db-keystore'
 
 // Test utils
 import { config, testAPIs, startIpfs, stopIpfs } from 'orbit-db-test-utils'
+
+const { createIdentity } = IdentityProvider
+const { sync } = rimraf
 
 let ipfsd, ipfs, testIdentity
 
