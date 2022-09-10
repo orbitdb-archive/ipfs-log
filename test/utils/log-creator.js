@@ -61,4 +61,4 @@ class LogCreator {
   }
 }
 
-module.exports = LogCreator
+export default LogCreator
