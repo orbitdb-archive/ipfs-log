@@ -1,19 +1,17 @@
 'use strict'
 
-const assert = require('assert')
-const rmrf = require('rimraf')
-const fs = require('fs-extra')
-const Log = require('../src/log')
-const IdentityProvider = require('orbit-db-identity-provider')
-const Keystore = require('orbit-db-keystore')
+import { notStrictEqual, strictEqual, deepStrictEqual } from 'assert'
+import rimraf from 'rimraf'
+import { copy } from 'fs-extra'
+import Log from '../src/log.js'
+import IdentityProvider from 'orbit-db-identity-provider'
+import Keystore from 'orbit-db-keystore'
 
 // Test utils
-const {
-  config,
-  testAPIs,
-  startIpfs,
-  stopIpfs
-} = require('orbit-db-test-utils')
+import { config, testAPIs, startIpfs, stopIpfs } from 'orbit-db-test-utils'
+
+const { sync } = rimraf
+const { createIdentity } = IdentityProvider
 
 let ipfsd, ipfs, testIdentity, testIdentity2
 
@@ -26,24 +24,24 @@ Object.keys(testAPIs).forEach((IPFS) => {
     let keystore, signingKeystore
 
     before(async () => {
-      rmrf.sync(identityKeysPath)
-      rmrf.sync(signingKeysPath)
-      await fs.copy(identityKeyFixtures, identityKeysPath)
-      await fs.copy(signingKeyFixtures, signingKeysPath)
+      sync(identityKeysPath)
+      sync(signingKeysPath)
+      await copy(identityKeyFixtures, identityKeysPath)
+      await copy(signingKeyFixtures, signingKeysPath)
 
       keystore = new Keystore(identityKeysPath)
       signingKeystore = new Keystore(signingKeysPath)
 
-      testIdentity = await IdentityProvider.createIdentity({ id: 'userA', keystore, signingKeystore })
-      testIdentity2 = await IdentityProvider.createIdentity({ id: 'userB', keystore, signingKeystore })
+      testIdentity = await createIdentity({ id: 'userA', keystore, signingKeystore })
+      testIdentity2 = await createIdentity({ id: 'userB', keystore, signingKeystore })
       ipfsd = await startIpfs(IPFS, config.defaultIpfsConfig)
       ipfs = ipfsd.api
     })
 
     after(async () => {
       await stopIpfs(ipfsd)
-      rmrf.sync(identityKeysPath)
-      rmrf.sync(signingKeysPath)
+      sync(identityKeysPath)
+      sync(signingKeysPath)
       await keystore.close()
       await signingKeystore.close()
     })
@@ -51,39 +49,39 @@ Object.keys(testAPIs).forEach((IPFS) => {
     it('creates a signed log', () => {
       const logId = 'A'
       const log = new Log(ipfs, testIdentity, { logId })
-      assert.notStrictEqual(log.id, null)
-      assert.strictEqual(log.id, logId)
+      notStrictEqual(log.id, null)
+      strictEqual(log.id, logId)
     })
 
     it('has the correct identity', () => {
       const log = new Log(ipfs, testIdentity, { logId: 'A' })
-      assert.notStrictEqual(log.id, null)
-      assert.strictEqual(log._identity.id, '03e0480538c2a39951d054e17ff31fde487cb1031d0044a037b53ad2e028a3e77c')
-      assert.strictEqual(log._identity.publicKey, '048bef2231e64d5c7147bd4b8afb84abd4126ee8d8335e4b069ac0a65c7be711cea5c1b8d47bc20ebaecdca588600ddf2894675e78b2ef17cf49e7bbaf98080361')
-      assert.strictEqual(log._identity.signatures.id, '3045022100f5f6f10571d14347aaf34e526ce3419fd64d75ffa7aa73692cbb6aeb6fbc147102203a3e3fa41fa8fcbb9fc7c148af5b640e2f704b20b3a4e0b93fc3a6d44dffb41e')
-      assert.strictEqual(log._identity.signatures.publicKey, '3044022020982b8492be0c184dc29de0a3a3bd86a86ba997756b0bf41ddabd24b47c5acf02203745fda39d7df650a5a478e52bbe879f0cb45c074025a93471414a56077640a4')
+      notStrictEqual(log.id, null)
+      strictEqual(log._identity.id, '03e0480538c2a39951d054e17ff31fde487cb1031d0044a037b53ad2e028a3e77c')
+      strictEqual(log._identity.publicKey, '048bef2231e64d5c7147bd4b8afb84abd4126ee8d8335e4b069ac0a65c7be711cea5c1b8d47bc20ebaecdca588600ddf2894675e78b2ef17cf49e7bbaf98080361')
+      strictEqual(log._identity.signatures.id, '3045022100f5f6f10571d14347aaf34e526ce3419fd64d75ffa7aa73692cbb6aeb6fbc147102203a3e3fa41fa8fcbb9fc7c148af5b640e2f704b20b3a4e0b93fc3a6d44dffb41e')
+      strictEqual(log._identity.signatures.publicKey, '3044022020982b8492be0c184dc29de0a3a3bd86a86ba997756b0bf41ddabd24b47c5acf02203745fda39d7df650a5a478e52bbe879f0cb45c074025a93471414a56077640a4')
     })
 
     it('has the correct public key', () => {
       const log = new Log(ipfs, testIdentity, { logId: 'A' })
-      assert.strictEqual(log._identity.publicKey, testIdentity.publicKey)
+      strictEqual(log._identity.publicKey, testIdentity.publicKey)
     })
 
     it('has the correct pkSignature', () => {
       const log = new Log(ipfs, testIdentity, { logId: 'A' })
-      assert.strictEqual(log._identity.signatures.id, testIdentity.signatures.id)
+      strictEqual(log._identity.signatures.id, testIdentity.signatures.id)
     })
 
     it('has the correct signature', () => {
       const log = new Log(ipfs, testIdentity, { logId: 'A' })
-      assert.strictEqual(log._identity.signatures.publicKey, testIdentity.signatures.publicKey)
+      strictEqual(log._identity.signatures.publicKey, testIdentity.signatures.publicKey)
     })
 
     it('entries contain an identity', async () => {
       const log = new Log(ipfs, testIdentity, { logId: 'A' })
       await log.append('one')
-      assert.notStrictEqual(log.values[0].sig, null)
-      assert.deepStrictEqual(log.values[0].identity, testIdentity.toJSON())
+      notStrictEqual(log.values[0].sig, null)
+      deepStrictEqual(log.values[0].identity, testIdentity.toJSON())
     })
 
     it('doesn\'t sign entries when identity is not defined', async () => {
@@ -93,7 +91,7 @@ Object.keys(testAPIs).forEach((IPFS) => {
       } catch (e) {
         err = e
       }
-      assert.strictEqual(err.message, 'Identity is required')
+      strictEqual(err.message, 'Identity is required')
     })
 
     it('doesn\'t join logs with different IDs ', async () => {
@@ -111,10 +109,10 @@ Object.keys(testAPIs).forEach((IPFS) => {
         throw e
       }
 
-      assert.strictEqual(err, undefined)
-      assert.strictEqual(log1.id, 'A')
-      assert.strictEqual(log1.values.length, 1)
-      assert.strictEqual(log1.values[0].payload, 'one')
+      strictEqual(err, undefined)
+      strictEqual(log1.id, 'A')
+      strictEqual(log1.values.length, 1)
+      strictEqual(log1.values[0].payload, 'one')
     })
 
     it('throws an error if log is signed but trying to merge with an entry that doesn\'t have public signing key', async () => {
@@ -130,7 +128,7 @@ Object.keys(testAPIs).forEach((IPFS) => {
       } catch (e) {
         err = e.toString()
       }
-      assert.strictEqual(err, 'Error: Entry doesn\'t have a key')
+      strictEqual(err, 'Error: Entry doesn\'t have a key')
     })
 
     it('throws an error if log is signed but trying to merge an entry that doesn\'t have a signature', async () => {
@@ -146,7 +144,7 @@ Object.keys(testAPIs).forEach((IPFS) => {
       } catch (e) {
         err = e.toString()
       }
-      assert.strictEqual(err, 'Error: Entry doesn\'t have a signature')
+      strictEqual(err, 'Error: Entry doesn\'t have a signature')
     })
 
     it('throws an error if log is signed but the signature doesn\'t verify', async () => {
@@ -164,9 +162,9 @@ Object.keys(testAPIs).forEach((IPFS) => {
       }
 
       const entry = log2.values[0]
-      assert.strictEqual(err, `Error: Could not validate signature "${entry.sig}" for entry "${entry.hash}" and key "${entry.key}"`)
-      assert.strictEqual(log1.values.length, 1)
-      assert.strictEqual(log1.values[0].payload, 'one')
+      strictEqual(err, `Error: Could not validate signature "${entry.sig}" for entry "${entry.hash}" and key "${entry.key}"`)
+      strictEqual(log1.values.length, 1)
+      strictEqual(log1.values[0].payload, 'one')
     })
 
     it('throws an error if entry doesn\'t have append access', async () => {
@@ -183,7 +181,7 @@ Object.keys(testAPIs).forEach((IPFS) => {
         err = e.toString()
       }
 
-      assert.strictEqual(err, `Error: Could not append entry, key "${testIdentity2.id}" is not allowed to write to the log`)
+      strictEqual(err, `Error: Could not append entry, key "${testIdentity2.id}" is not allowed to write to the log`)
     })
 
     it('throws an error upon join if entry doesn\'t have append access', async () => {
@@ -202,7 +200,7 @@ Object.keys(testAPIs).forEach((IPFS) => {
         err = e.toString()
       }
 
-      assert.strictEqual(err, `Error: Could not append entry, key "${testIdentity2.id}" is not allowed to write to the log`)
+      strictEqual(err, `Error: Could not append entry, key "${testIdentity2.id}" is not allowed to write to the log`)
     })
   })
 })
