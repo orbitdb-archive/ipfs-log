@@ -1,19 +1,23 @@
 'use strict'
 
 import { strictEqual, deepStrictEqual } from 'assert'
-import { sync } from 'rimraf'
+import rimraf from 'rimraf'
 import { copy } from 'fs-extra'
-import { create, toMultihash, toEntry, fromMultihash, IPLD_LINKS, isParent, isEqual, isEntry } from '../src/entry'
-import { AccessController as _AccessController } from '../src/log'
-import { io } from '../src/utils'
+import Entry from '../src/entry.js'
+import { AccessController as _AccessController } from '../src/log.js'
+import { io } from '../src/utils/index.js'
 const AccessController = _AccessController
-import { createIdentity } from 'orbit-db-identity-provider'
-import { hello, helloWorld, helloAgain } from './fixtures/v0-entries.fixture'
-import v1Entries from './fixtures/v1-entries.fixture'
+import IdentityProvider from 'orbit-db-identity-provider'
+import { hello, helloWorld, helloAgain } from './fixtures/v0-entries.fixture.js'
+import v1Entries from './fixtures/v1-entries.fixture.json' assert { type: 'json' }
 import Keystore from 'orbit-db-keystore'
 
 // Test utils
 import { config, testAPIs, startIpfs, stopIpfs } from 'orbit-db-test-utils'
+
+const { sync } = rimraf
+const { createIdentity } = IdentityProvider
+const { create, toMultihash, toEntry, fromMultihash, IPLD_LINKS, isParent, isEqual, isEntry } = Entry
 
 let ipfsd, ipfs, testIdentity
 
