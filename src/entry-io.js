@@ -1,9 +1,10 @@
 'use strict'
 
-const pMap = require('p-map')
-const pDoWhilst = require('p-do-whilst')
-const Entry = require('./entry')
+import pMap from 'p-map'
+import pDoWhilst from 'p-do-whilst'
+import Entry from './entry.js'
 
+const { isEntry, fromMultihash } = Entry
 const hasItems = arr => arr && arr.length > 0
 
 class EntryIO {
@@ -92,7 +93,7 @@ class EntryIO {
           : null
 
         const addToResults = (entry) => {
-          if (Entry.isEntry(entry) && !cache[entry.hash] && !shouldExclude(entry.hash)) {
+          if (isEntry(entry) && !cache[entry.hash] && !shouldExclude(entry.hash)) {
             const ts = entry.clock.time
 
             // Update min/max clocks
@@ -141,7 +142,7 @@ class EntryIO {
 
         try {
           // Load the entry
-          const entry = await Entry.fromMultihash(ipfs, hash)
+          const entry = await fromMultihash(ipfs, hash)
           // Simulate network latency (for debugging purposes)
           if (delay > 0) {
             const sleep = (ms = 0) => new Promise(resolve => setTimeout(resolve, ms))
@@ -178,4 +179,4 @@ class EntryIO {
   }
 }
 
-module.exports = EntryIO
+export default EntryIO

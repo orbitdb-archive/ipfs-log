@@ -1,25 +1,24 @@
-'use strict'
+import pMap from "p-map";
+import GSet from "./g-set.js";
+import Entry from "./entry.js";
+import LogIO from "./log-io.js";
+import { IPFSNotDefinedError, LtOrLteMustBeStringOrArray, LogNotDefinedError, NotALogError } from "./log-errors.js";
+import Clock from "./lamport-clock.js";
+import * as Sorting from "./log-sorting.js";
+import AccessController from "./default-access-controller.js";
+import { isDefined, findUniques } from "./utils/index.js";
+import EntryIndex from "./entry-index.js";
 
-const pMap = require('p-map')
-const GSet = require('./g-set')
-const Entry = require('./entry')
-const LogIO = require('./log-io')
-const LogError = require('./log-errors')
-const Clock = require('./lamport-clock')
-const Sorting = require('./log-sorting')
-const { LastWriteWins, NoZeroes } = Sorting
-const AccessController = require('./default-access-controller')
-const { isDefined, findUniques } = require('./utils')
-const EntryIndex = require('./entry-index')
-const randomId = () => new Date().getTime().toString()
-const getHash = e => e.hash
-const flatMap = (res, acc) => res.concat(acc)
-const getNextPointers = entry => entry.next
-const maxClockTimeReducer = (res, acc) => Math.max(res, acc.clock.time)
+const { LastWriteWins, NoZeroes } = Sorting;
+const randomId = () => new Date().getTime().toString();
+const getHash = e => e.hash;
+const flatMap = (res, acc) => res.concat(acc);
+const getNextPointers = entry => entry.next;
+const maxClockTimeReducer = (res, acc) => Math.max(res, acc.clock.time);
 const uniqueEntriesReducer = (res, acc) => {
-  res[acc.hash] = acc
-  return res
-}
+    res[acc.hash] = acc;
+    return res;
+};
 
 /**
  * @description
@@ -45,7 +44,7 @@ class Log extends GSet {
    */
   constructor (ipfs, identity, { logId, access, entries, heads, clock, sortFn, concurrency } = {}) {
     if (!isDefined(ipfs)) {
-      throw LogError.IPFSNotDefinedError()
+      throw IPFSNotDefinedError()
     }
 
     if (!isDefined(identity)) {
@@ -350,8 +349,8 @@ class Log extends GSet {
     if (typeof lte === 'string') lte = [this.get(lte)]
     if (typeof lt === 'string') lt = [this.get(this.get(lt).next[0])]
 
-    if (lte && !Array.isArray(lte)) throw LogError.LtOrLteMustBeStringOrArray()
-    if (lt && !Array.isArray(lt)) throw LogError.LtOrLteMustBeStringOrArray()
+    if (lte && !Array.isArray(lte)) throw LtOrLteMustBeStringOrArray()
+    if (lt && !Array.isArray(lt)) throw LtOrLteMustBeStringOrArray()
 
     const start = (lte || (lt || this.heads)).filter(isDefined)
     const endHash = gte ? this.get(gte).hash : gt ? this.get(gt).hash : null
@@ -387,8 +386,8 @@ class Log extends GSet {
    * await log1.join(log2)
    */
   async join (log, size = -1) {
-    if (!isDefined(log)) throw LogError.LogNotDefinedError()
-    if (!Log.isLog(log)) throw LogError.NotALogError()
+    if (!isDefined(log)) throw LogNotDefinedError()
+    if (!Log.isLog(log)) throw NotALogError()
     if (this.id !== log.id) return
 
     // Get the difference of the logs
@@ -732,7 +731,7 @@ class Log extends GSet {
   }
 }
 
-module.exports = Log
-module.exports.Sorting = Sorting
-module.exports.Entry = Entry
-module.exports.AccessController = AccessController
+export default Log
+export { Sorting }
+export { Entry }
+export { AccessController }

@@ -9,4 +9,4 @@ function findUniques (value, key) {
   return Object.keys(uniques).map(get)
 }
 
-module.exports = findUniques
+export default findUniques

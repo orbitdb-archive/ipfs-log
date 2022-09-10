@@ -31,4 +31,4 @@ class LamportClock {
   }
 }
 
-module.exports = LamportClock
+export default LamportClock

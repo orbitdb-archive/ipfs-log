@@ -1,8 +1,9 @@
 'use strict'
 
-const Clock = require('./lamport-clock')
-const { isDefined, io } = require('./utils')
-const stringify = require('json-stringify-deterministic')
+import Clock from './lamport-clock.js'
+import { isDefined, io } from './utils/index.js'
+import stringify from 'json-stringify-deterministic'
+
 const IpfsNotDefinedError = () => new Error('Ipfs instance not defined')
 const IPLD_LINKS = ['next', 'refs']
 const getWriteFormatForVersion = v => v === 0 ? 'dag-pb' : 'dag-cbor'
@@ -222,6 +223,8 @@ class Entry {
   }
 }
 
-module.exports = Entry
-module.exports.IPLD_LINKS = IPLD_LINKS
-module.exports.getWriteFormat = getWriteFormat
+export default Entry
+const _IPLD_LINKS = IPLD_LINKS
+export { _IPLD_LINKS as IPLD_LINKS }
+const _getWriteFormat = getWriteFormat
+export { _getWriteFormat as getWriteFormat }

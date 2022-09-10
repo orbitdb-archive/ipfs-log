@@ -26,4 +26,4 @@ class EntryIndex {
   }
 }
 
-module.exports = EntryIndex
+export default EntryIndex

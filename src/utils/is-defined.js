@@ -2,4 +2,4 @@
 
 const isDefined = (arg) => arg !== undefined && arg !== null
 
-module.exports = isDefined
+export default isDefined

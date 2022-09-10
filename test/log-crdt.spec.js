@@ -1,19 +1,14 @@
 'use strict'
 
-const assert = require('assert')
-const rmrf = require('rimraf')
-const fs = require('fs-extra')
-const Log = require('../src/log')
-const IdentityProvider = require('orbit-db-identity-provider')
-const Keystore = require('orbit-db-keystore')
+import { strictEqual, deepStrictEqual } from 'assert'
+import { sync } from 'rimraf'
+import { copy } from 'fs-extra'
+import Log from '../src/log'
+import { createIdentity } from 'orbit-db-identity-provider'
+import Keystore from 'orbit-db-keystore'
 
 // Test utils
-const {
-  config,
-  testAPIs,
-  startIpfs,
-  stopIpfs
-} = require('orbit-db-test-utils')
+import { config, testAPIs, startIpfs, stopIpfs } from 'orbit-db-test-utils'
 
 let ipfsd, ipfs, testIdentity, testIdentity2, testIdentity3
 
@@ -26,25 +21,25 @@ Object.keys(testAPIs).forEach((IPFS) => {
     let keystore, signingKeystore
 
     before(async () => {
-      rmrf.sync(identityKeysPath)
-      rmrf.sync(signingKeysPath)
-      await fs.copy(identityKeyFixtures, identityKeysPath)
-      await fs.copy(signingKeyFixtures, signingKeysPath)
+      sync(identityKeysPath)
+      sync(signingKeysPath)
+      await copy(identityKeyFixtures, identityKeysPath)
+      await copy(signingKeyFixtures, signingKeysPath)
 
       keystore = new Keystore(identityKeysPath)
       signingKeystore = new Keystore(signingKeysPath)
 
-      testIdentity = await IdentityProvider.createIdentity({ id: 'userA', keystore, signingKeystore })
-      testIdentity2 = await IdentityProvider.createIdentity({ id: 'userB', keystore, signingKeystore })
-      testIdentity3 = await IdentityProvider.createIdentity({ id: 'userC', keystore, signingKeystore })
+      testIdentity = await createIdentity({ id: 'userA', keystore, signingKeystore })
+      testIdentity2 = await createIdentity({ id: 'userB', keystore, signingKeystore })
+      testIdentity3 = await createIdentity({ id: 'userC', keystore, signingKeystore })
       ipfsd = await startIpfs(IPFS, config.defaultIpfsConfig)
       ipfs = ipfsd.api
     })
 
     after(async () => {
       await stopIpfs(ipfsd)
-      rmrf.sync(identityKeysPath)
-      rmrf.sync(signingKeysPath)
+      sync(identityKeysPath)
+      sync(signingKeysPath)
 
       await keystore.close()
       await signingKeystore.close()
@@ -92,9 +87,9 @@ Object.keys(testAPIs).forEach((IPFS) => {
         const res2 = log3.values.slice()
 
         // associativity: a + (b + c) == (a + b) + c
-        assert.strictEqual(res1.length, expectedElementsCount)
-        assert.strictEqual(res2.length, expectedElementsCount)
-        assert.deepStrictEqual(res1, res2)
+        strictEqual(res1.length, expectedElementsCount)
+        strictEqual(res2.length, expectedElementsCount)
+        deepStrictEqual(res1, res2)
       })
 
       it('join is commutative', async () => {
@@ -121,9 +116,9 @@ Object.keys(testAPIs).forEach((IPFS) => {
         const res2 = log1.values.slice()
 
         // commutativity: a + b == b + a
-        assert.strictEqual(res1.length, expectedElementsCount)
-        assert.strictEqual(res2.length, expectedElementsCount)
-        assert.deepStrictEqual(res1, res2)
+        strictEqual(res1.length, expectedElementsCount)
+        strictEqual(res2.length, expectedElementsCount)
+        deepStrictEqual(res1, res2)
       })
 
       it('multiple joins are commutative', async () => {
@@ -146,7 +141,7 @@ Object.keys(testAPIs).forEach((IPFS) => {
         await log1.join(log2)
         const resA2 = log1.toString()
 
-        assert.strictEqual(resA1, resA2)
+        strictEqual(resA1, resA2)
 
         // a + b == b + a
         log1 = new Log(ipfs, testIdentity, { logId: 'X' })
@@ -167,7 +162,7 @@ Object.keys(testAPIs).forEach((IPFS) => {
         await log2.join(log1)
         const resB2 = log2.toString()
 
-        assert.strictEqual(resB1, resB2)
+        strictEqual(resB1, resB2)
 
         // a + c == c + a
         log1 = new Log(ipfs, testIdentity, { logId: 'A' })
@@ -188,7 +183,7 @@ Object.keys(testAPIs).forEach((IPFS) => {
         await log1.join(log3)
         const resC2 = log1.toString()
 
-        assert.strictEqual(resC1, resC2)
+        strictEqual(resC1, resC2)
 
         // c + b == b + c
         log2 = new Log(ipfs, testIdentity2, { logId: 'X' })
@@ -210,7 +205,7 @@ Object.keys(testAPIs).forEach((IPFS) => {
         await log2.join(log3)
         const resD2 = log2.toString()
 
-        assert.strictEqual(resD1, resD2)
+        strictEqual(resD1, resD2)
 
         // a + b + c == c + b + a
         log1 = new Log(ipfs, testIdentity, { logId: 'X' })
@@ -239,7 +234,7 @@ Object.keys(testAPIs).forEach((IPFS) => {
         await log3.join(log1)
         const logRight = log3.toString()
 
-        assert.strictEqual(logLeft, logRight)
+        strictEqual(logLeft, logRight)
       })
 
       it('join is idempotent', async () => {
@@ -252,7 +247,7 @@ Object.keys(testAPIs).forEach((IPFS) => {
 
         // idempotence: a + a = a
         await logA.join(logA)
-        assert.strictEqual(logA.length, expectedElementsCount)
+        strictEqual(logA.length, expectedElementsCount)
       })
     })
   })
