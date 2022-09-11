@@ -3,7 +3,7 @@
 import { strictEqual, deepStrictEqual } from 'assert'
 import rimraf from 'rimraf'
 import { copy } from 'fs-extra'
-import Entry from '../src/entry.js'
+import Entry, { IPLD_LINKS } from '../src/entry.js'
 import { AccessController as _AccessController } from '../src/log.js'
 import { io } from '../src/utils/index.js'
 const AccessController = _AccessController
@@ -17,7 +17,7 @@ import { config, testAPIs, startIpfs, stopIpfs } from 'orbit-db-test-utils'
 
 const { sync } = rimraf
 const { createIdentity } = IdentityProvider
-const { create, toMultihash, toEntry, fromMultihash, IPLD_LINKS, isParent, isEqual, isEntry } = Entry
+const { create, toMultihash, toEntry, fromMultihash, isParent, isEqual, isEntry } = Entry
 
 let ipfsd, ipfs, testIdentity
 

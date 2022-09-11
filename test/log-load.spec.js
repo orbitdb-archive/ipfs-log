@@ -5,7 +5,7 @@ import rimraf from 'rimraf'
 import { copy } from 'fs-extra'
 import Sorting from '../src/log-sorting.js'
 import bigLogString from './fixtures/big-log.fixture.js'
-import Entry from '../src/entry.js'
+import Entry, { IPLD_LINKS, getWriteFormat } from '../src/entry.js'
 import Log from '../src/log.js'
 import { io } from '../src/utils/index.js'
 import IdentityProvider from 'orbit-db-identity-provider'
@@ -14,12 +14,12 @@ import LogCreator from './utils/log-creator.js'
 import { hello, helloWorld, helloAgain } from './fixtures/v0-entries.fixture.js'
 import v1Entries from './fixtures/v1-entries.fixture.json' assert { type: 'json' }
 
-const { map, length: _length } = v1Entries
+const { length: _length } = v1Entries
 const { sync } = rimraf
 const { LastWriteWins } = Sorting
 const { createIdentity } = IdentityProvider
 const { fromJSON, fromEntryHash, fromEntry, fromMultihash: _fromMultihash } = Log
-const { fromMultihash, create, compare, getWriteFormat, toEntry, IPLD_LINKS } = Entry
+const { fromMultihash, create, compare, toEntry,  } = Entry
 const { createLogWithSixteenEntries, createLogWithTwoHundredEntries } = LogCreator
 
 // Alternate tiebreaker. Always does the opposite of LastWriteWins
@@ -908,7 +908,7 @@ Object.keys(testAPIs).forEach((IPFS) => {
 
     describe('Backwards-compatibility v1', () => {
       before(async () => {
-        await Promise.all(map(e => io.write(ipfs, getWriteFormat(e), toEntry(e), { links: IPLD_LINKS })))
+        await Promise.all(v1Entries.map(e => io.write(ipfs, getWriteFormat(e), toEntry(e), { links: IPLD_LINKS })))
       })
 
       it('creates a log from v1 json', async () => {
@@ -917,19 +917,19 @@ Object.keys(testAPIs).forEach((IPFS) => {
         json.heads = await Promise.all(json.heads.map(headHash => fromMultihash(ipfs, headHash)))
         const log = await fromJSON(ipfs, testIdentity, json, { logId: 'A' })
         strictEqual(log.length, 5)
-        deepStrictEqual(log.values, map(e => toEntry(e, { includeHash: true })))
+        deepStrictEqual(log.values, v1Entries.map(e => toEntry(e, { includeHash: true })))
       })
 
       it('creates a log from v1 entry', async () => {
         const log = await fromEntry(ipfs, testIdentity, v1Entries[_length - 1], { logId: 'A' })
         strictEqual(log.length, 5)
-        deepStrictEqual(log.values, map(e => toEntry(e, { includeHash: true })))
+        deepStrictEqual(log.values, v1Entries.map(e => toEntry(e, { includeHash: true })))
       })
 
       it('creates a log from v1 entry hash', async () => {
         const log = await fromEntryHash(ipfs, testIdentity, v1Entries[_length - 1].hash, { logId: 'A' })
         strictEqual(log.length, 5)
-        deepStrictEqual(log.values, map(e => toEntry(e, { includeHash: true })))
+        deepStrictEqual(log.values, v1Entries.map(e => toEntry(e, { includeHash: true })))
       })
 
       it('creates a log from log hash of v1 entries', async () => {
@@ -937,7 +937,7 @@ Object.keys(testAPIs).forEach((IPFS) => {
         const hash = await log1.toMultihash()
         const log = await _fromMultihash(ipfs, testIdentity, hash, { logId: 'A' })
         strictEqual(log.length, 5)
-        deepStrictEqual(log.values, map(e => toEntry(e, { includeHash: true })))
+        deepStrictEqual(log.values, v1Entries.map(e => toEntry(e, { includeHash: true })))
       })
     })
   })

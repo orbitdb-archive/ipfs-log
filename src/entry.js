@@ -224,7 +224,5 @@ class Entry {
 }
 
 export default Entry
-const _IPLD_LINKS = IPLD_LINKS
-export { _IPLD_LINKS as IPLD_LINKS }
-const _getWriteFormat = getWriteFormat
-export { _getWriteFormat as getWriteFormat }
+export { IPLD_LINKS }
+export { getWriteFormat }
