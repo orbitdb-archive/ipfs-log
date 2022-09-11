@@ -22,12 +22,12 @@
   "dependencies": {
     "json-stringify-deterministic": "^1.0.1",
     "multihashing-async": "^2.0.1",
-    "orbit-db-identity-provider": "^0.3.1",
+    "orbit-db-identity-provider": "^0.4.0",
     "orbit-db-io": "^2.1.0",
-    "p-do-whilst": "^1.1.0",
-    "p-each-series": "^2.1.0",
-    "p-map": "^4.0.0",
-    "p-whilst": "^2.1.0"
+    "p-do-whilst": "^2.0.0",
+    "p-each-series": "^3.0.0",
+    "p-map": "^5.5.0",
+    "p-whilst": "^3.0.0"
   },
   "devDependencies": {
     "@babel/cli": "^7.14.3",
@@ -43,7 +43,7 @@
     "c8": "^7.12.0",
     "eslint": "^8.23.0",
     "fs-extra": "^10.0.0",
-    "http-server": "^0.12.3",
+    "http-server": "^14.1.1",
     "is-node": "^1.0.2",
     "jsdoc": "^3.6.6",
     "json-loader": "~0.5.7",
@@ -51,14 +51,13 @@
     "levelup": "^5.1.1",
     "mocha": "^10.0.0",
     "mocha-headless-chrome": "^4.0.0",
-    "node-polyfill-webpack-plugin": "^1.1.4",
-    "node-pre-gyp": "^0.13.0",
+    "node-polyfill-webpack-plugin": "^2.0.1",
     "orbit-db-benchmark-runner": "^1.0.3",
     "orbit-db-storage-adapter": "^0.8.0",
     "orbit-db-test-utils": "^2.2.0",
     "path-browserify": "^1.0.1",
     "rimraf": "~3.0.2",
-    "standard": "~16.0.3",
+    "standard": "~17.0.0",
     "stream-browserify": "^3.0.0",
     "webpack": "^5.37.1",
     "webpack-cli": "^4.7.0"
