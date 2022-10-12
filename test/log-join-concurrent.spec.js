@@ -60,9 +60,12 @@ Object.keys(testAPIs).forEach(IPFS => {
         const hash1 = await log1.toMultihash()
         const hash2 = await log2.toMultihash()
 
+        const values1 = await log1.values()
+        const values2 = await log2.values()
+
         assert.strictEqual(hash1, hash2)
         assert.strictEqual(log1.length, 20)
-        assert.deepStrictEqual(log1.values.map(e => e.payload), log2.values.map(e => e.payload))
+        assert.deepStrictEqual(values1.map(e => e.payload), values2.map(e => e.payload))
       })
 
       it('Concurrently appending same payload after join results in same state', async () => {
@@ -80,19 +83,25 @@ Object.keys(testAPIs).forEach(IPFS => {
         const hash1 = await log1.toMultihash()
         const hash2 = await log2.toMultihash()
 
+        const values1 = await log1.values()
+        const values2 = await log2.values()
+
         assert.strictEqual(hash1, hash2)
         assert.strictEqual(log1.length, 41)
         assert.strictEqual(log2.length, 41)
-        assert.deepStrictEqual(log1.values.map(e => e.payload), log2.values.map(e => e.payload))
+        assert.deepStrictEqual(values1.map(e => e.payload), values2.map(e => e.payload))
       })
 
       it('Joining after concurrently appending same payload joins entry once', async () => {
         await log1.join(log2)
         await log2.join(log1)
 
+        const values1 = await log1.values()
+        const values2 = await log2.values()
+
         assert.strictEqual(log1.length, log2.length)
         assert.strictEqual(log1.length, 41)
-        assert.deepStrictEqual(log1.values.map(e => e.payload), log2.values.map(e => e.payload))
+        assert.deepStrictEqual(values1.map(e => e.payload), values2.map(e => e.payload))
       })
     })
   })

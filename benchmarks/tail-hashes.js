@@ -15,7 +15,7 @@ const base = {
     return { log, ipfsd }
   },
   cycle: async function ({ log }) {
-    return log.tailHashes
+    return log.tailHashes()
   },
   teardown: async function ({ ipfsd }) {
     await stopIpfs(ipfsd)

@@ -1,28 +1,33 @@
 'use strict'
 
+const LRU = require('lru-cache')
+
 class EntryIndex {
-  constructor (entries = {}) {
-    this._cache = entries
+  constructor (entries = {}, cacheSize = Infinity) {
+    this._cache = new LRU({ max: cacheSize })
+    this.add(entries)
   }
 
   set (k, v) {
-    this._cache[k] = v
+    this._cache.set(k, v)
   }
 
   get (k) {
-    return this._cache[k]
+    return this._cache.get(k)
   }
 
   delete (k) {
-    return delete this._cache[k]
+    this._cache.del(k)
   }
 
-  add (newItems) {
-    this._cache = Object.assign(this._cache, newItems)
+  add (items) {
+    for (const k in items) {
+      this._cache.set(k, items[k])
+    }
   }
 
   get length () {
-    return Object.values(this._cache).length
+    return this._cache.length
   }
 }
 

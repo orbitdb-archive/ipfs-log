@@ -23,7 +23,9 @@ class LogIO {
     if (!isDefined(ipfs)) throw LogError.IPFSNotDefinedError()
     if (!isDefined(log)) throw LogError.LogNotDefinedError()
     if (!isDefined(format)) format = 'dag-cbor'
-    if (log.values.length < 1) throw new Error('Can\'t serialize an empty log')
+
+    const values = await log.values()
+    if (values.length < 1) throw new Error('Can\'t serialize an empty log')
 
     return io.write(ipfs, format, log.toJSON(), { links: IPLD_LINKS })
   }

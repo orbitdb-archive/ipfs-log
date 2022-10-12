@@ -63,7 +63,8 @@ Object.keys(testAPIs).forEach((IPFS) => {
     it('log with one entry', async () => {
       const log = new Log(ipfs, testIdentity, { logId: 'X' })
       await log.append('one')
-      const hash = log.values[0].hash
+      const values = await log.values()
+      const hash = values[0].hash
       const res = await EntryIO.fetchAll(ipfs, hash, { length: 1 })
       assert.strictEqual(res.length, 1)
     })
@@ -72,7 +73,8 @@ Object.keys(testAPIs).forEach((IPFS) => {
       const log = new Log(ipfs, testIdentity, { logId: 'X' })
       await log.append('one')
       await log.append('two')
-      const hash = last(log.values).hash
+      const values = await log.values()
+      const hash = last(values).hash
       const res = await EntryIO.fetchAll(ipfs, hash, { length: 2 })
       assert.strictEqual(res.length, 2)
     })
@@ -81,7 +83,8 @@ Object.keys(testAPIs).forEach((IPFS) => {
       const log = new Log(ipfs, testIdentity, { logId: 'X' })
       await log.append('one')
       await log.append('two')
-      const hash = last(log.values).hash
+      const values = await log.values()
+      const hash = last(values).hash
       const res = await EntryIO.fetchAll(ipfs, hash, { length: 1 })
       assert.strictEqual(res.length, 1)
     })
@@ -103,9 +106,10 @@ Object.keys(testAPIs).forEach((IPFS) => {
       let log2 = new Log(ipfs, testIdentity, { logId: 'X' })
       for (let i = 1; i <= count; i++) {
         await log.append('hello' + i)
+        const values2 = await log2.values()
         if (i % 10 === 0) {
           log2 = new Log(ipfs, testIdentity,
-            { logId: log2.id, entries: log2.values, heads: log2.heads.concat(log.heads) })
+            { logId: log2.id, entries: values2, heads: log2.heads.concat(log.heads) })
           await log2.append('hi' + i)
         }
       }
@@ -122,7 +126,8 @@ Object.keys(testAPIs).forEach((IPFS) => {
       for (let i = 1; i <= count; i++) {
         await log.append('hello' + i)
         if (i % 10 === 0) {
-          log2 = new Log(ipfs, testIdentity, { logId: log2.id, entries: log2.values })
+          const values2 = await log2.values()
+          log2 = new Log(ipfs, testIdentity, { logId: log2.id, entries: values2 })
           await log2.append('hi' + i)
           await log2.join(log)
         }
@@ -141,14 +146,16 @@ Object.keys(testAPIs).forEach((IPFS) => {
       for (let i = 1; i <= count; i++) {
         await log.append('hello' + i)
         if (i % 10 === 0) {
+          const values2 = await log2.values()
           log2 = new Log(ipfs, testIdentity,
-            { logId: log2.id, entries: log2.values, heads: log2.heads })
+            { logId: log2.id, entries: values2, heads: log2.heads })
           await log2.append('hi' + i)
           await log2.join(log)
         }
         if (i % 25 === 0) {
+          const values3 = await log3.values()
           log3 = new Log(ipfs, testIdentity,
-            { logId: log3.id, entries: log3.values, heads: log3.heads.concat(log2.heads) })
+            { logId: log3.id, entries: values3, heads: log3.heads.concat(log2.heads) })
           await log3.append('--' + i)
         }
       }
@@ -172,8 +179,9 @@ Object.keys(testAPIs).forEach((IPFS) => {
           await log2.join(log)
         }
         if (i % 25 === 0) {
+          const values3 = await log3.values()
           log3 = new Log(ipfs, testIdentity3,
-            { logId: log3.id, entries: log3.values, heads: log3.heads.concat(log2.heads) })
+            { logId: log3.id, entries: values3, heads: log3.heads.concat(log2.heads) })
           await log3.append('--' + i)
         }
       }
@@ -184,10 +192,13 @@ Object.keys(testAPIs).forEach((IPFS) => {
       await log4.join(log2)
       await log4.join(log3)
 
-      const values3 = log3.values.map((e) => e.payload)
-      const values4 = log4.values.map((e) => e.payload)
+      const values3 = await log3.values()
+      const values4 = await log4.values()
 
-      assert.deepStrictEqual(values3, values4)
+      const entryPayloads3 = values3.map((e) => e.payload)
+      const entryPayloads4 = values4.map((e) => e.payload)
+
+      assert.deepStrictEqual(entryPayloads3, entryPayloads4)
     })
   })
 })

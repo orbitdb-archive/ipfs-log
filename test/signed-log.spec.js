@@ -82,8 +82,9 @@ Object.keys(testAPIs).forEach((IPFS) => {
     it('entries contain an identity', async () => {
       const log = new Log(ipfs, testIdentity, { logId: 'A' })
       await log.append('one')
-      assert.notStrictEqual(log.values[0].sig, null)
-      assert.deepStrictEqual(log.values[0].identity, testIdentity.toJSON())
+      const values = await log.values()
+      assert.notStrictEqual(values[0].sig, null)
+      assert.deepStrictEqual(values[0].identity, testIdentity.toJSON())
     })
 
     it('doesn\'t sign entries when identity is not defined', async () => {
@@ -111,10 +112,11 @@ Object.keys(testAPIs).forEach((IPFS) => {
         throw e
       }
 
+      const values1 = await log1.values()
       assert.strictEqual(err, undefined)
       assert.strictEqual(log1.id, 'A')
-      assert.strictEqual(log1.values.length, 1)
-      assert.strictEqual(log1.values[0].payload, 'one')
+      assert.strictEqual(values1.length, 1)
+      assert.strictEqual(values1[0].payload, 'one')
     })
 
     it('throws an error if log is signed but trying to merge with an entry that doesn\'t have public signing key', async () => {
@@ -125,7 +127,8 @@ Object.keys(testAPIs).forEach((IPFS) => {
       try {
         await log1.append('one')
         await log2.append('two')
-        delete log2.values[0].key
+        const values2 = await log2.values()
+        delete values2[0].key
         await log1.join(log2)
       } catch (e) {
         err = e.toString()
@@ -141,7 +144,8 @@ Object.keys(testAPIs).forEach((IPFS) => {
       try {
         await log1.append('one')
         await log2.append('two')
-        delete log2.values[0].sig
+        const values2 = await log2.values()
+        delete values2[0].sig
         await log1.join(log2)
       } catch (e) {
         err = e.toString()
@@ -157,16 +161,21 @@ Object.keys(testAPIs).forEach((IPFS) => {
       try {
         await log1.append('one')
         await log2.append('two')
-        log2.values[0].sig = log1.values[0].sig
+        const values1 = await log1.values()
+        const values2 = await log2.values()
+        values2[0].sig = values1[0].sig
         await log1.join(log2)
       } catch (e) {
         err = e.toString()
       }
 
-      const entry = log2.values[0]
+      const values1 = await log1.values()
+      const values2 = await log2.values()
+
+      const entry = values2[0]
       assert.strictEqual(err, `Error: Could not validate signature "${entry.sig}" for entry "${entry.hash}" and key "${entry.key}"`)
-      assert.strictEqual(log1.values.length, 1)
-      assert.strictEqual(log1.values[0].payload, 'one')
+      assert.strictEqual(values1.length, 1)
+      assert.strictEqual(values1[0].payload, 'one')
     })
 
     it('throws an error if entry doesn\'t have append access', async () => {

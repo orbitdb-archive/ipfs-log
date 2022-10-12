@@ -10,7 +10,7 @@ const Log = require('ipfs-log')
 
 ### Constructor
 
-#### new Log(ipfs, identity, [{ logId, access, entries, heads, clock, sortFn }])
+#### new Log(ipfs, identity, [{ logId, access, entries, heads, clock, sortFn, hashIndex }])
 
 Create a log. Each log gets a unique ID, which can be passed in the `options` as `logId`. Returns a `Log` instance.
 
@@ -32,15 +32,6 @@ console.log(log.id)
 
 Returns the ID of the log.
 
-#### values
-
-Returns an `Array` of [entries](https://github.com/orbitdb/ipfs-log/blob/master/src/entry.js) in the log. The values are in linearized order according to their [Lamport clocks](https://en.wikipedia.org/wiki/Lamport_timestamps).
-
-```javascript
-const values = log.values
-// TODO: output example
-```
-
 #### length
 
 Returns the number of entries in the log.
@@ -58,16 +49,25 @@ const heads = log.heads
 // TODO: output example
 ```
 
-#### tails
+### Methods
 
-Return the tails of the log. Tails are the entries that reference other entries that are not in the log.
+#### values
+
+Returns a *Promise* that resolves to an `Array` of [entries](https://github.com/orbitdb/ipfs-log/blob/master/src/entry.js) in the log. The values are in linearized order according to their [Lamport clocks](https://en.wikipedia.org/wiki/Lamport_timestamps).
 
 ```javascript
-const tails = log.tails
+const values = await log.values()
 // TODO: output example
 ```
 
-### Methods
+#### tails
+
+Returns a *Promise* that resolves to the tails of the log. Tails are the entries that reference other entries that are not in the log.
+
+```javascript
+const tails = await log.tails()
+// TODO: output example
+```
 
 #### append(data)
 
@@ -115,6 +115,18 @@ console.log(log.values)
 // ]
 ```
 
+#### get(hash)
+
+Returns a *Promise* that resolves to an entry if it exists, otherwise undefined.
+
+```javascript
+const entry = await get(hash)
+```
+
+#### has(hash)
+
+Returns true if the hash exists in the log, otherwise false.
+
 #### join(log, [length])
 
 Join the log with another log. Returns a Promise that resolves to a `Log` instance. The size of the joined log can be specified by giving `length` argument.
@@ -158,7 +170,7 @@ const buffer = log1.toBuffer()
 
 ### toString
 
-Returns the log values as a nicely formatted string.
+Returns a *Promise* that resolves to the log values as a nicely formatted string.
 
 ```javascript
 console.log(log.toString())
