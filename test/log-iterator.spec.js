@@ -19,7 +19,7 @@ const {
 let ipfsd, ipfs, testIdentity, testIdentity2, testIdentity3
 
 Object.keys(testAPIs).forEach((IPFS) => {
-  describe('Log - Iterator (' + IPFS + ')', function () {
+  describe.only('Log - Iterator (' + IPFS + ')', function () {
     this.timeout(config.timeout)
 
     const { identityKeyFixtures, signingKeyFixtures, identityKeysPath, signingKeysPath } = config
@@ -63,7 +63,7 @@ Object.keys(testAPIs).forEach((IPFS) => {
       })
 
       it('returns a Symbol.iterator object', async () => {
-        const it = log1.iterator({
+        const it = await log1.iterator({
           lte: 'zdpuAuNuQ4YBeXY5YStfrsJx6ykz4yBV2XnNcBR4uGmiojQde',
           amount: 0
         })
@@ -72,26 +72,49 @@ Object.keys(testAPIs).forEach((IPFS) => {
         assert.deepStrictEqual(it.next(), { value: undefined, done: true })
       })
 
+      it('iterates values', async () => {
+        const amount = 3
+        const it = await log1.iterator({
+          lte: 'zdpuAuNuQ4YBeXY5YStfrsJx6ykz4yBV2XnNcBR4uGmiojQde', // 'entry67'
+          amount: amount
+        })
+
+        let next = await it.next()
+        assert.strictEqual(next.value.payload, 'entry67')
+
+        next = await it.next()
+        assert.strictEqual(next.value.payload, 'entry66')
+
+        next = await it.next()
+        assert.strictEqual(next.value.payload, 'entry65')
+
+        next = await it.next()
+        assert.strictEqual(next.value, undefined)
+        assert.strictEqual(next.done, true)
+      })
+
       it('returns length with lte and amount', async () => {
         const amount = 10
-        const it = log1.iterator({
+        const it = await log1.iterator({
           lte: 'zdpuAuNuQ4YBeXY5YStfrsJx6ykz4yBV2XnNcBR4uGmiojQde',
           amount: amount
         })
 
-        assert.strictEqual([...it].length, 10)
+        const res = await it.collect()
+
+        assert.strictEqual(res.length, 10)
       })
 
       it('returns entries with lte and amount', async () => {
         const amount = 10
 
-        const it = log1.iterator({
+        const it = await log1.iterator({
           lte: 'zdpuAuNuQ4YBeXY5YStfrsJx6ykz4yBV2XnNcBR4uGmiojQde',
           amount: amount
         })
 
         let i = 0
-        for (const entry of it) {
+        for await (const entry of it) {
           assert.strictEqual(entry.payload, 'entry' + (67 - i++))
         }
       })
@@ -99,38 +122,39 @@ Object.keys(testAPIs).forEach((IPFS) => {
       it('returns length with lt and amount', async () => {
         const amount = 10
 
-        const it = log1.iterator({
+        const it = await log1.iterator({
           lt: 'zdpuAuNuQ4YBeXY5YStfrsJx6ykz4yBV2XnNcBR4uGmiojQde',
           amount: amount
         })
 
-        assert.strictEqual([...it].length, amount)
+        const res = await it.collect()
+        assert.strictEqual(res.length, amount)
       })
 
       it('returns entries with lt and amount', async () => {
         const amount = 10
 
-        const it = log1.iterator({
+        const it = await log1.iterator({
           lt: 'zdpuAuNuQ4YBeXY5YStfrsJx6ykz4yBV2XnNcBR4uGmiojQde',
           amount: amount
         })
 
         let i = 1
-        for (const entry of it) {
+        for await (const entry of it) {
           assert.strictEqual(entry.payload, 'entry' + (67 - i++))
         }
       })
 
       it('returns correct length with gt and amount', async () => {
         const amount = 5
-        const it = log1.iterator({
+        const it = await log1.iterator({
           gt: 'zdpuAuNuQ4YBeXY5YStfrsJx6ykz4yBV2XnNcBR4uGmiojQde',
           amount: amount
         })
 
         let i = 0
         let count = 0
-        for (const entry of it) {
+        for await (const entry of it) {
           assert.strictEqual(entry.payload, 'entry' + (72 - i++))
           count++
         }
@@ -140,35 +164,41 @@ Object.keys(testAPIs).forEach((IPFS) => {
       it('returns length with gte and amount', async () => {
         const amount = 12
 
-        const it = log1.iterator({
-          gt: 'zdpuAuNuQ4YBeXY5YStfrsJx6ykz4yBV2XnNcBR4uGmiojQde',
+        const it = await log1.iterator({
+          gte: 'zdpuAuNuQ4YBeXY5YStfrsJx6ykz4yBV2XnNcBR4uGmiojQde',
           amount: amount
         })
 
-        assert.strictEqual([...it].length, amount)
+        const res = await it.collect()
+        assert.strictEqual(res.length, amount)
       })
 
       it('returns entries with gte and amount', async () => {
         const amount = 12
 
-        const it = log1.iterator({
-          gt: 'zdpuAuNuQ4YBeXY5YStfrsJx6ykz4yBV2XnNcBR4uGmiojQde',
+        const it = await log1.iterator({
+          // This test had a bug where the test should test for gte but was testing for gt
+          // gt: 'zdpuAuNuQ4YBeXY5YStfrsJx6ykz4yBV2XnNcBR4uGmiojQde',
+          gte: 'zdpuAuNuQ4YBeXY5YStfrsJx6ykz4yBV2XnNcBR4uGmiojQde',
           amount: amount
         })
 
         let i = 0
-        for (const entry of it) {
-          assert.strictEqual(entry.payload, 'entry' + (79 - i++))
+        for await (const entry of it) {
+          // This test had a bug where the test should test for gte but was testing for gt
+          // assert.strictEqual(entry.payload, 'entry' + (79 - i++))
+          assert.strictEqual(entry.payload, 'entry' + (78 - i++))
         }
       })
 
       /* eslint-disable camelcase */
       it('iterates with lt and gt', async () => {
-        const it = log1.iterator({
+        const it = await log1.iterator({
           gt: 'zdpuAymZUrYbHgwfYK76xXYhzxNqwaXRWWrn5kmRsZJFdqBEz',
           lt: 'zdpuAoDcWRiChLXnGskymcGrM1VdAjsaFrsXvNZmcDattA7AF'
         })
-        const hashes = [...it].map(e => e.hash)
+        const res = await it.collect()
+        const hashes = res.map(e => e.hash)
 
         // neither hash should appear in the array
         assert.strictEqual(hashes.indexOf('zdpuAymZUrYbHgwfYK76xXYhzxNqwaXRWWrn5kmRsZJFdqBEz'), -1)
@@ -177,11 +207,12 @@ Object.keys(testAPIs).forEach((IPFS) => {
       })
 
       it('iterates with lt and gte', async () => {
-        const it = log1.iterator({
+        const it = await log1.iterator({
           gte: 'zdpuAt7YtNE1i9APJitGyKomcmxjc2BDHa57wkrjq4onqBNaR',
           lt: 'zdpuAr8N4vzqcB5sh5JLcr6Eszo4HnYefBWDbBBwwrTPo6kU6'
         })
-        const hashes = [...it].map(e => e.hash)
+        const res = await it.collect()
+        const hashes = res.map(e => e.hash)
 
         // only the gte hash should appear in the array
         assert.strictEqual(hashes.indexOf('zdpuAt7YtNE1i9APJitGyKomcmxjc2BDHa57wkrjq4onqBNaR'), 24)
@@ -190,11 +221,12 @@ Object.keys(testAPIs).forEach((IPFS) => {
       })
 
       it('iterates with lte and gt', async () => {
-        const it = log1.iterator({
+        const it = await log1.iterator({
           gt: 'zdpuAqUrGrPa4AaZAQbCH4yxQfEjB32rdFY743XCgyGW8iAuU',
           lte: 'zdpuAwkagwE9D2jUtLnDiCPqBGh9xhpnaX8iEDQ3K7HRmjggi'
         })
-        const hashes = [...it].map(e => e.hash)
+        const res = await it.collect()
+        const hashes = res.map(e => e.hash)
 
         // only the lte hash should appear in the array
         assert.strictEqual(hashes.indexOf('zdpuAqUrGrPa4AaZAQbCH4yxQfEjB32rdFY743XCgyGW8iAuU'), -1)
@@ -203,11 +235,12 @@ Object.keys(testAPIs).forEach((IPFS) => {
       })
 
       it('iterates with lte and gte', async () => {
-        const it = log1.iterator({
+        const it = await log1.iterator({
           gte: 'zdpuAzG5AD1GdeNffSskTErjjPbAb95QiNyoaQSrbB62eqYSD',
           lte: 'zdpuAuujURnUUxVw338Xwh47zGEFjjbaZXXARHPik6KYUcUVk'
         })
-        const hashes = [...it].map(e => e.hash)
+        const res = await it.collect()
+        const hashes = res.map(e => e.hash)
 
         // neither hash should appear in the array
         assert.strictEqual(hashes.indexOf('zdpuAzG5AD1GdeNffSskTErjjPbAb95QiNyoaQSrbB62eqYSD'), 9)
@@ -216,77 +249,81 @@ Object.keys(testAPIs).forEach((IPFS) => {
       })
 
       it('returns length with gt and default amount', async () => {
-        const it = log1.iterator({
+        const it = await log1.iterator({
           gt: 'zdpuAuNuQ4YBeXY5YStfrsJx6ykz4yBV2XnNcBR4uGmiojQde'
         })
 
-        assert.strictEqual([...it].length, 33)
+        const res = await it.collect()
+        assert.strictEqual(res.length, 33)
       })
 
       it('returns entries with gt and default amount', async () => {
-        const it = log1.iterator({
+        const it = await log1.iterator({
           gt: 'zdpuAuNuQ4YBeXY5YStfrsJx6ykz4yBV2XnNcBR4uGmiojQde'
         })
 
         let i = 0
-        for (const entry of it) {
+        for await (const entry of it) {
           assert.strictEqual(entry.payload, 'entry' + (100 - i++))
         }
       })
 
       it('returns length with gte and default amount', async () => {
-        const it = log1.iterator({
+        const it = await log1.iterator({
           gte: 'zdpuAuNuQ4YBeXY5YStfrsJx6ykz4yBV2XnNcBR4uGmiojQde'
         })
 
-        assert.strictEqual([...it].length, 34)
+        const res = await it.collect()
+        assert.strictEqual(res.length, 34)
       })
 
       it('returns entries with gte and default amount', async () => {
-        const it = log1.iterator({
+        const it = await log1.iterator({
           gte: 'zdpuAuNuQ4YBeXY5YStfrsJx6ykz4yBV2XnNcBR4uGmiojQde'
         })
 
         let i = 0
-        for (const entry of it) {
+        for await (const entry of it) {
           assert.strictEqual(entry.payload, 'entry' + (100 - i++))
         }
       })
 
       it('returns length with lt and default amount value', async () => {
-        const it = log1.iterator({
+        const it = await log1.iterator({
           lt: 'zdpuAuNuQ4YBeXY5YStfrsJx6ykz4yBV2XnNcBR4uGmiojQde'
         })
 
-        assert.strictEqual([...it].length, 67)
+        const res = await it.collect()
+        assert.strictEqual(res.length, 67)
       })
 
       it('returns entries with lt and default amount value', async () => {
-        const it = log1.iterator({
+        const it = await log1.iterator({
           lt: 'zdpuAuNuQ4YBeXY5YStfrsJx6ykz4yBV2XnNcBR4uGmiojQde'
         })
 
         let i = 0
-        for (const entry of it) {
+        for await (const entry of it) {
           assert.strictEqual(entry.payload, 'entry' + (66 - i++))
         }
       })
 
       it('returns length with lte and default amount value', async () => {
-        const it = log1.iterator({
+        const it = await log1.iterator({
           lte: 'zdpuAuNuQ4YBeXY5YStfrsJx6ykz4yBV2XnNcBR4uGmiojQde'
         })
 
-        assert.strictEqual([...it].length, 68)
+        const res = await it.collect()
+        assert.strictEqual(res.length, 68)
       })
 
       it('returns entries with lte and default amount value', async () => {
-        const it = log1.iterator({
+        const it = await log1.iterator({
           lte: 'zdpuAuNuQ4YBeXY5YStfrsJx6ykz4yBV2XnNcBR4uGmiojQde'
         })
 
         let i = 0
-        for (const entry of it) {
+        for await (const entry of it) {
           assert.strictEqual(entry.payload, 'entry' + (67 - i++))
         }
       })
@@ -301,44 +338,48 @@ Object.keys(testAPIs).forEach((IPFS) => {
       })
 
       it('returns the full length from all heads', async () => {
-        const it = fixture.log.iterator({
+        const it = await fixture.log.iterator({
           lte: fixture.log.heads
         })
 
-        assert.strictEqual([...it].length, 16)
+        const res = await it.collect()
+        assert.strictEqual(res.length, 16)
       })
 
       it('returns partial entries from all heads', async () => {
-        const it = fixture.log.iterator({
+        const it = await fixture.log.iterator({
           lte: fixture.log.heads,
           amount: 6
         })
 
-        assert.deepStrictEqual([...it].map(e => e.payload),
+        const res = await it.collect()
+        assert.deepStrictEqual(res.map(e => e.payload),
           ['entryA10', 'entryA9', 'entryA8', 'entryA7', 'entryC0', 'entryA6'])
       })
 
       it('returns partial logs from single heads #1', async () => {
-        const it = fixture.log.iterator({
+        const it = await fixture.log.iterator({
           lte: [fixture.log.heads[0]]
         })
 
-        assert.strictEqual([...it].length, 10)
+        const res = await it.collect()
+        assert.strictEqual(res.length, 10)
       })
 
       it('returns partial logs from single heads #2', async () => {
-        const it = fixture.log.iterator({
+        const it = await fixture.log.iterator({
           lte: [fixture.log.heads[1]]
         })
 
-        assert.strictEqual([...it].length, 11)
+        const res = await it.collect()
+        assert.strictEqual(res.length, 11)
       })
 
       it('throws error if lt/lte not a string or array of entries', async () => {
         let errMsg
 
         try {
-          fixture.log.iterator({
+          await fixture.log.iterator({
             lte: fixture.log.heads[1]
           })
         } catch (e) {

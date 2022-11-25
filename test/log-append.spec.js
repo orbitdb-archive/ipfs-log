@@ -87,43 +87,31 @@ Object.keys(testAPIs).forEach((IPFS) => {
         })
       })
 
-      describe.only('append 10 items to a log', async () => {
-        const amount = 100
-        const nextPointerAmount = 64
-
+      describe('append 10 items to a log', async () => {
         let log
+        const nextPointerAmount = 1
 
-        before(async () => {
-          log = new Log(ipfs, testIdentity, 'A')
-          console.time("append all")
+        it('traverse - stops when it finds an entry with the right key (latest entry)', async () => {
+          const amount = 100
+
+          let log1 = new Log(ipfs, testIdentity, 'A')
+
           for (let i = 0; i < amount; i++) {
-            // await log.append('hello' + i, nextPointerAmount)
             const count = i + 1
-            await log.append({ key: 'key' + count, value: 'value' + count }, nextPointerAmount)
-            // Make sure the log has the right heads after each append
-            // const values = log.values
-            // assert.strictEqual(log.heads.length, 1)
-            // assert.strictEqual(log.heads[0].hash, values[values.length - 1].hash)
+            await log1.append({ key: 'key' + count, value: 'value' + count }, nextPointerAmount)
           }
-          console.timeEnd("append all")
-        })
-
-        it.only('traverse - stops when it finds an entry with the right key (latest entry)', async () => {
 
           const shouldStop = async (res) => {
             const entries = Object.values(res)
             const last = entries[entries.length - 1]
             if (last) {
-              // console.log(">>", entries)
-              const entry = last
-              return entry.payload.key === 'key7'
+              return last.payload.key === 'key7'
             }
             return false
           }
 
           let entries = []
-          for await (let e of log.traverse(log.heads, shouldStop)) {
-            // console.log("--", e)
+          for await (let e of log1.traverse(log1.heads, shouldStop)) {
             entries.push(e)
           }
 
@@ -131,6 +119,46 @@ Object.keys(testAPIs).forEach((IPFS) => {
           const entry = entries[entries.length - 1]
           assert.equal(entry.payload.key, 'key7')
           assert.equal(entry.payload.value, 'value7')
+        })
+
+        it('traverse - stops when it finds an entry with the right key in a log that has conflicts', async () => {
+          let log1 = new Log(ipfs, testIdentity, 'A')
+          let log2 = new Log(ipfs, testIdentity, 'B')
+
+          await log1.append({ key: 'key1', value: 'A1' })
+          await log2.append({ key: 'key1', value: 'B1' })
+
+          await log1.join(log2)
+
+          await log1.append({ key: 'key1', value: 'A2' })
+          await log1.append({ key: 'key1', value: 'A3' })
+          await log2.append({ key: 'key1', value: 'B2' })
+
+          await log1.append({ key: 'key2', value: 'A4' })
+          await log2.append({ key: 'key2', value: 'B3' })
+
+          await log1.join(log2)
+
+          await log1.append({ key: 'key2', value: 'A5' })
+
+          const shouldStop = async (res) => {
+            const entries = Object.values(res)
+            const last = entries[entries.length - 1]
+            if (last) {
+              return last.payload.key === 'key1'
+            }
+            return false
+          }
+
+          let entries = []
+          for await (let e of log1.traverse(log1.heads, shouldStop)) {
+            entries.push(e)
+          }
+
+          assert.equal(entries.length, 4)
+          const entry = entries[entries.length - 1]
+          assert.equal(entry.payload.key, 'key1')
+          assert.equal(entry.payload.value, 'A3')
         })
 
         it('traverse - stops when it finds an entry with the right key (second last entry)', async () => {
@@ -148,10 +176,8 @@ Object.keys(testAPIs).forEach((IPFS) => {
           assert.notEqual(values[0], undefined)
           assert.equal(values.length, amount - 1)
           const entry = await log.get(values[values.length - 1])
-          console.log(entry)
           assert.equal(entry.payload.key, 'key1')
           assert.equal(entry.payload.value, 'value1')
-          console.log(values)
         })
 
         it('traverse - stops when the whole log was traversed and entry with a key was not found', async () => {

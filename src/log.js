@@ -136,9 +136,9 @@ class Log extends GSet {
    * Returns the values in the log.
    * @returns {Array<Entry>}
    */
-  get values () {
-    return Object.values(this.traverse(this.heads)).reverse()
-  }
+  // get values () {
+  //   return Object.values(this.traverse(this.heads)).reverse()
+  // }
 
   /**
    * Returns an array of heads as hashes.
@@ -202,8 +202,8 @@ class Log extends GSet {
     const defaultStopFn = () => false
     shouldStopFn = shouldStopFn || defaultStopFn
     // Sort the given given root entries and use as the starting stack
-    // let stack = rootEntries.sort(this._sortFn).reverse()
-    let stack = rootEntries.sort(this._sortFn).reverse().map(e => e.hash)
+    let stack = rootEntries.sort(this._sortFn).reverse()
+    // let stack = rootEntries.sort(this._sortFn).reverse().map(e => e.hash)
 
     // Cache for checking if we've processed an entry already
     let traversed = {}
@@ -214,19 +214,19 @@ class Log extends GSet {
     // const getEntry = e => this.get(e)
 
     // Add an entry to the stack and traversed nodes index
-    const addToStack = hash => {
+    const addToStack = entry => {
       // If we've already processed the entry, don't add it to the stack
       // if (!entry || traversed[entry.hash]) {
-      if (traversed[hash]) {
+      if (traversed[entry.hash]) {
         return
       }
 
       // Add the entry in front of the stack and sort
-      stack = [hash, ...stack]
-        // .sort(this._sortFn) // TODO: get entry data and sort
+      stack = [entry, ...stack]
+        .sort(this._sortFn)
         .reverse()
       // Add to the cache of processed entries
-      traversed[hash] = true
+      // traversed[entry.hash] = true
     }
 
     // Start traversal
@@ -236,13 +236,19 @@ class Log extends GSet {
     // while (stack.length > 0 && (count < amount || amount < 0)) { // eslint-disable-line no-unmodified-loop-condition
     while (stack.length > 0 && !(await shouldStopFn(result))) { // eslint-disable-line no-unmodified-loop-condition
       // Get the next element from the stack
-      const hash = stack.shift()
+      const entry = stack.shift()
       // Add to the result
-      const entry = await this.get(hash)
+      // const entry = await this.get(e.hash)
       traversed[entry.hash] = true
       result[entry.hash] = entry // TODO: change to an array
       // addEntry(entry)
-      entry.next.forEach(addToStack)
+      if (entry.next) {
+        for await (let n of entry.next) {
+          const next = await this.get(n)
+          addToStack(next)
+        }
+      }
+      // entry.next.forEach(addToStack)
       yield entry
     }
 
@@ -293,7 +299,7 @@ class Log extends GSet {
     const nexts = Object.keys(this.heads.reverse().reduce(uniqueEntriesReducer, {}))
     const isNext = e => !nexts.includes(e)
     // Delete the heads from the refs
-    const refs = Array.from(references).map(getHash).filter(isNext)
+    const refs = Array.from(references).map(getHash).filter(isNext).filter(isDefined)
     // @TODO: Split Entry.create into creating object, checking permission, signing and then posting to IPFS
     // Create the entry and add it to the internal cache
     const entry = await Entry.create(
@@ -351,20 +357,127 @@ class Log extends GSet {
    *
    *
    */
-  iterator ({ gt = undefined, gte = undefined, lt = undefined, lte = undefined, amount = -1 } =
+  async iterator ({ gt = undefined, gte = undefined, lt = undefined, lte = undefined, amount = -1 } =
   {}) {
-    if (amount === 0) return (function * () {})()
-    if (typeof lte === 'string') lte = [this.get(lte)]
-    if (typeof lt === 'string') lt = [this.get(this.get(lt).next[0])]
+    if (amount === 0) {
+      return (function * () {})()
+    }
+
+    if (typeof lte === 'string') {
+      lte = [await this.get(lte)]
+    }
+
+    if (typeof lt === 'string') {
+      const entry = await this.get(lt)
+      lt = [await this.get(entry.next[0])]
+    }
 
     if (lte && !Array.isArray(lte)) throw LogError.LtOrLteMustBeStringOrArray()
     if (lt && !Array.isArray(lt)) throw LogError.LtOrLteMustBeStringOrArray()
 
-    const start = (lte || (lt || this.heads)).filter(isDefined)
-    const endHash = gte ? this.get(gte).hash : gt ? this.get(gt).hash : null
-    const count = endHash ? -1 : amount || -1
+    let start = (lte || (lt || this.heads)).filter(isDefined)
+    // const endHash = gte
+    //   ? (await this.get(gte)).hash
+    //   : (gt ? (await this.get(gt)).hash : null)
 
-    const entries = this.traverse(start, count, endHash)
+    const end = gte
+      ? await this.get(gte)
+      : (gt ? await this.get(gt) : null)
+
+    // const count = endHash ? -1 : amount || -1
+    const count = end ? -1 : amount || -1
+    // console.log(">>", endHash, count)
+
+    const shouldStopTraversal = async (res) => {
+      const entries = Object.values(res)
+      // console.log(">>", entries, count)
+      if (entries.length >= count && count !== -1) {
+        // console.log("1")
+        return true
+      }
+      const last = entries[entries.length - 1]
+      if (last && end && last.hash === end.hash) {
+      // if (last && last.hash === endHash) {
+        // console.log("2")
+        return true
+      }
+      return false
+    }
+
+    let it = this.traverse(start, shouldStopTraversal)
+
+    let cache = []
+
+    if ((gt || gte)) {
+      for await (const a of it) {
+        const item = a
+        // console.log("-----", item.hash, gt, gt && item.hash === gt)
+        if (item && ((gt && item.hash === gt) || (gte && item.hash === gte))) {
+          if (!gt && gte) {
+            cache.push(item)
+          }
+          break
+        } else {
+          cache.push(item)
+        }
+      }
+      
+      // if (gt) cache.pop()
+
+      // if ((gt || gte) && amount > -1) {
+      if ((gt || gte) && amount > -1) {
+        cache = cache.slice(cache.length - amount, cache.length)
+      }
+    }
+
+    // if (lt) {
+    //   const startIndex = cache.findIndex(e => e.hash === lt.hash)
+    //   cache = cache.slice(cache.length - startIndex, cache.length)
+    //   console.log("::", lt, startIndex, cache)
+    // }
+
+    let currentIndex = 0
+
+    let iterator = {
+      [Symbol.asyncIterator] () {
+        return this
+      },
+      next: async () => {
+        if (cache.length > 0) {
+          let item = { value: null, done: true }
+          if (currentIndex < cache.length) {
+            item = { value: cache[currentIndex], done: false }
+            currentIndex++
+          }
+          return item
+        } else {
+          return it.next()
+        }
+      },
+      collect: async () => {
+        if (cache.length > 0) {
+          return cache
+        } else {
+          let arr = {}
+          for await (const i of it) {
+            if (!arr[i.hash])
+              arr[i.hash] = i
+          }
+          return Object.values(arr)
+        }
+      }
+    }
+
+    return iterator
+    /*
+    return (async function * () {
+      console.log("2>>", start)
+      for (const i of this.traverse(start, shouldStopTraversal)) {
+        console.log("...", i)
+        yield i
+      }
+    })()
+
     let entryValues = Object.values(entries)
 
     // Strip off last entry if gt is non-inclusive
@@ -380,6 +493,7 @@ class Log extends GSet {
         yield entryValues[i]
       }
     })()
+    */
   }
 
   /**
@@ -527,8 +641,9 @@ class Log extends GSet {
    */
   static isLog (log) {
     return log.id !== undefined &&
-      log.heads !== undefined &&
-      log._entryIndex !== undefined
+      log.heads !== undefined
+      // log.heads !== undefined &&
+      // log._entryIndex !== undefined
   }
 
   /**
