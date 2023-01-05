@@ -1,5 +1,3 @@
-'use strict'
-
 /**
  * Interface for G-Set CRDT
  *

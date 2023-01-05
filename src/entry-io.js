@@ -1,5 +1,3 @@
-'use strict'
-
 import pMap from 'p-map'
 import pDoWhilst from 'p-do-whilst'
 import Entry from './entry.js'

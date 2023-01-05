@@ -1,5 +1,3 @@
-'use strict'
-
 import { strictEqual } from 'assert'
 import rimraf from 'rimraf'
 import { copy } from 'fs-extra'

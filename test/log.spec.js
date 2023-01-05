@@ -1,5 +1,3 @@
-'use strict'
-
 import { notStrictEqual, deepStrictEqual, strictEqual } from 'assert'
 import rimraf from 'rimraf'
 import { CID } from 'multiformats/cid'

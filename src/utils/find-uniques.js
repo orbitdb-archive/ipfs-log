@@ -1,5 +1,3 @@
-'use strict'
-
 function findUniques (value, key) {
   // Create an index of the collection
   const uniques = {}

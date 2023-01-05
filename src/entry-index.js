@@ -1,5 +1,3 @@
-'use strict'
-
 class EntryIndex {
   constructor (entries = {}) {
     this._cache = entries

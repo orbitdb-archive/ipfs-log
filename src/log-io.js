@@ -1,5 +1,3 @@
-'use strict'
-
 import Entry from './entry.js'
 import EntryIO from './entry-io.js'
 import Sorting from './log-sorting.js'

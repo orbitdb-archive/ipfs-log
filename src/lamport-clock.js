@@ -1,5 +1,3 @@
-'use strict'
-
 class LamportClock {
   constructor (id, time) {
     this.id = id

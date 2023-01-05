@@ -1,5 +1,3 @@
-'use strict'
-
 class LogCreator {
   static async createLogWithSixteenEntries (Log, ipfs, identities) {
     const create = async () => {

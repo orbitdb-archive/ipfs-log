@@ -1,5 +1,3 @@
-'use strict'
-
 import Clock from './lamport-clock.js'
 import { isDefined, io } from './utils/index.js'
 import stringify from 'json-stringify-deterministic'

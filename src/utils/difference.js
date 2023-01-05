@@ -1,5 +1,3 @@
-'use strict'
-
 function difference (a, b, key) {
   // Indices for quick lookups
   const processed = {}
