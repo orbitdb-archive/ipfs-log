@@ -1,6 +1,6 @@
 import pMap from "p-map";
 import GSet from "./g-set.js";
-import Entry, { getWriteFormat } from "./entry.js";
+import Entry, { IPLD_LINKS, getWriteFormat } from "./entry.js";
 import LogIO from "./log-io.js";
 import { IPFSNotDefinedError, LtOrLteMustBeStringOrArray, LogNotDefinedError, NotALogError } from "./log-errors.js";
 import Clock from "./lamport-clock.js";
@@ -734,5 +734,5 @@ class Log extends GSet {
 
 export default Log
 export { Sorting }
-export { Entry, getWriteFormat }
+export { Entry, IPLD_LINKS, getWriteFormat }
 export { AccessController }
