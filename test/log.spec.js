@@ -12,6 +12,9 @@ import { read, write } from 'orbit-db-io'
 
 // For tiebreaker testing
 import LogSorting from '../src/log-sorting.js'
+
+// Test utils
+import { config, testAPIs, startIpfs, stopIpfs } from 'orbit-db-test-utils'
 const { LastWriteWins } = LogSorting
 const FirstWriteWins = (a, b) => LastWriteWins(a, b) * -1
 
@@ -19,9 +22,6 @@ const { sync } = rimraf
 const { create } = Entry
 const { createIdentity } = IdentityProvider
 const { fromMultihash, fromEntryHash } = Log
-
-// Test utils
-import { config, testAPIs, startIpfs, stopIpfs } from 'orbit-db-test-utils'
 
 let ipfsd, ipfs, testIdentity, testIdentity2, testIdentity3
 

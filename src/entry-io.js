@@ -85,9 +85,9 @@ class EntryIO {
         // not get stuck loading a block that is unreachable
         const timer = timeout && timeout > 0
           ? setTimeout(() => {
-              console.warn(`Warning: Couldn't fetch entry '${hash}', request timed out (${timeout}ms)`)
-              resolve()
-            }, timeout)
+            console.warn(`Warning: Couldn't fetch entry '${hash}', request timed out (${timeout}ms)`)
+            resolve()
+          }, timeout)
           : null
 
         const addToResults = (entry) => {

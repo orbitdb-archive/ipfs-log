@@ -94,7 +94,8 @@
     "build:examples": "webpack --config webpack.example.config.js",
     "build:dist": "webpack --config webpack.config.js --mode production",
     "build:es5": "babel src --out-dir ./lib/es5/ --presets @babel/preset-env --plugins @babel/plugin-transform-runtime",
-    "lint": "standard",
+    "lint": "standard --env=mocha",
+    "lint:fix": "standard --env=mocha --fix",
     "benchmark": "nyc benchmark-runner -r -b --baselineLimit 1000",
     "benchmark:stress": "benchmark-runner -r --grep stress",
     "examples": "http-server examples/browser"

@@ -6,13 +6,13 @@ import Log from '../src/log.js'
 import Keystore from 'orbit-db-keystore'
 import IdentityProvider from 'orbit-db-identity-provider'
 
+// Test utils
+import { config, testAPIs, startIpfs, stopIpfs } from 'orbit-db-test-utils'
+
 const { sync } = rimraf
 const { fromMultihash } = Log
 const { fetchAll } = EntryIO
 const { createIdentity } = IdentityProvider
-
-// Test utils
-import { config, testAPIs, startIpfs, stopIpfs } from 'orbit-db-test-utils'
 
 let ipfsd, ipfs, testIdentity, testIdentity2, testIdentity3, testIdentity4
 

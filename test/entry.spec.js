@@ -4,14 +4,14 @@ import { copy } from 'fs-extra'
 import Entry, { IPLD_LINKS } from '../src/entry.js'
 import { AccessController as _AccessController } from '../src/log.js'
 import { io } from '../src/utils/index.js'
-const AccessController = _AccessController
 import IdentityProvider from 'orbit-db-identity-provider'
 import { hello, helloWorld, helloAgain } from './fixtures/v0-entries.fixture.js'
-import v1Entries from './fixtures/v1-entries.fixture.json' assert { type: 'json' }
+import { v1Entries } from './fixtures/v1-entries.fixture.js'
 import Keystore from 'orbit-db-keystore'
 
 // Test utils
 import { config, testAPIs, startIpfs, stopIpfs } from 'orbit-db-test-utils'
+const AccessController = _AccessController
 
 const { sync } = rimraf
 const { createIdentity } = IdentityProvider

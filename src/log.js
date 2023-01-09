@@ -1,25 +1,25 @@
-import pMap from "p-map";
-import GSet from "./g-set.js";
-import Entry, { IPLD_LINKS, getWriteFormat } from "./entry.js";
-import LogIO from "./log-io.js";
-import { IPFSNotDefinedError, LtOrLteMustBeStringOrArray, LogNotDefinedError, NotALogError } from "./log-errors.js";
-import Clock from "./lamport-clock.js";
-import Sorting from "./log-sorting.js";
-import AccessController from "./default-access-controller.js";
-import { isDefined, findUniques } from "./utils/index.js";
-import EntryIndex from "./entry-index.js";
+import pMap from 'p-map'
+import GSet from './g-set.js'
+import Entry, { IPLD_LINKS, getWriteFormat } from './entry.js'
+import LogIO from './log-io.js'
+import { IPFSNotDefinedError, LtOrLteMustBeStringOrArray, LogNotDefinedError, NotALogError } from './log-errors.js'
+import Clock from './lamport-clock.js'
+import Sorting from './log-sorting.js'
+import AccessController from './default-access-controller.js'
+import { isDefined, findUniques } from './utils/index.js'
+import EntryIndex from './entry-index.js'
 
-const { LastWriteWins, NoZeroes } = Sorting;
+const { LastWriteWins, NoZeroes } = Sorting
 
-const randomId = () => new Date().getTime().toString();
-const getHash = e => e.hash;
-const flatMap = (res, acc) => res.concat(acc);
-const getNextPointers = entry => entry.next;
-const maxClockTimeReducer = (res, acc) => Math.max(res, acc.clock.time);
+const randomId = () => new Date().getTime().toString()
+const getHash = e => e.hash
+const flatMap = (res, acc) => res.concat(acc)
+const getNextPointers = entry => entry.next
+const maxClockTimeReducer = (res, acc) => Math.max(res, acc.clock.time)
 const uniqueEntriesReducer = (res, acc) => {
-    res[acc.hash] = acc;
-    return res;
-};
+  res[acc.hash] = acc
+  return res
+}
 
 /**
  * @description

@@ -4,4 +4,4 @@ class AccessController {
   }
 }
 
-  export default AccessController
+export default AccessController

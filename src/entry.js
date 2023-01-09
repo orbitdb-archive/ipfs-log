@@ -42,7 +42,7 @@ class Entry {
       id: logId, // For determining a unique chain
       payload: data, // Can be any JSON.stringifyable data
       next: nexts, // Array of hashes
-      refs: refs,
+      refs,
       v: 2, // To tag the version of this data structure
       clock: clock || new Clock(identity.publicKey)
     }

@@ -10,22 +10,22 @@ import IdentityProvider from 'orbit-db-identity-provider'
 import Keystore from 'orbit-db-keystore'
 import LogCreator from './utils/log-creator.js'
 import { hello, helloWorld, helloAgain } from './fixtures/v0-entries.fixture.js'
-import v1Entries from './fixtures/v1-entries.fixture.json' assert { type: 'json' }
+import { v1Entries } from './fixtures/v1-entries.fixture.js'
+
+// Test utils
+import { config, MemStore, testAPIs, startIpfs, stopIpfs } from 'orbit-db-test-utils'
 
 const { length: _length } = v1Entries
 const { sync } = rimraf
 const { LastWriteWins } = Sorting
 const { createIdentity } = IdentityProvider
 const { fromJSON, fromEntryHash, fromEntry, fromMultihash: _fromMultihash } = Log
-const { fromMultihash, create, compare, toEntry,  } = Entry
+const { fromMultihash, create, compare, toEntry } = Entry
 const { createLogWithSixteenEntries, createLogWithTwoHundredEntries } = LogCreator
 
 // Alternate tiebreaker. Always does the opposite of LastWriteWins
 const FirstWriteWins = (a, b) => LastWriteWins(a, b) * -1
 const BadComparatorReturnsZero = (a, b) => 0
-
-// Test utils
-import { config, MemStore, testAPIs, startIpfs, stopIpfs } from 'orbit-db-test-utils'
 
 let ipfsd, ipfs, testIdentity, testIdentity2, testIdentity3, testIdentity4
 
@@ -896,7 +896,7 @@ Object.keys(testAPIs).forEach((IPFS) => {
       })
 
       it('creates a log from log hash of v0 entries', async () => {
-        const log1 = new Log(ipfs, testIdentity, { entries: entries })
+        const log1 = new Log(ipfs, testIdentity, { entries })
         const hash = await log1.toMultihash()
         const log = await _fromMultihash(ipfs, testIdentity, hash, { logId: 'A' })
         strictEqual(log.length, 3)

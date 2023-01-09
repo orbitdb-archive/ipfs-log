@@ -91,9 +91,9 @@ function NoZeroes (func) {
 }
 
 export default {
-  SortByClocks: SortByClocks,
-  SortByClockId: SortByClockId,
-  LastWriteWins: LastWriteWins,
-  SortByEntryHash: SortByEntryHash,
-  NoZeroes: NoZeroes
+  SortByClocks,
+  SortByClockId,
+  LastWriteWins,
+  SortByEntryHash,
+  NoZeroes
 }

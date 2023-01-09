@@ -73,7 +73,7 @@ Object.keys(testAPIs).forEach((IPFS) => {
         const amount = 10
         const it = log1.iterator({
           lte: 'zdpuAuNuQ4YBeXY5YStfrsJx6ykz4yBV2XnNcBR4uGmiojQde',
-          amount: amount
+          amount
         })
 
         strictEqual([...it].length, 10)
@@ -84,7 +84,7 @@ Object.keys(testAPIs).forEach((IPFS) => {
 
         const it = log1.iterator({
           lte: 'zdpuAuNuQ4YBeXY5YStfrsJx6ykz4yBV2XnNcBR4uGmiojQde',
-          amount: amount
+          amount
         })
 
         let i = 0
@@ -98,7 +98,7 @@ Object.keys(testAPIs).forEach((IPFS) => {
 
         const it = log1.iterator({
           lt: 'zdpuAuNuQ4YBeXY5YStfrsJx6ykz4yBV2XnNcBR4uGmiojQde',
-          amount: amount
+          amount
         })
 
         strictEqual([...it].length, amount)
@@ -109,7 +109,7 @@ Object.keys(testAPIs).forEach((IPFS) => {
 
         const it = log1.iterator({
           lt: 'zdpuAuNuQ4YBeXY5YStfrsJx6ykz4yBV2XnNcBR4uGmiojQde',
-          amount: amount
+          amount
         })
 
         let i = 1
@@ -122,7 +122,7 @@ Object.keys(testAPIs).forEach((IPFS) => {
         const amount = 5
         const it = log1.iterator({
           gt: 'zdpuAuNuQ4YBeXY5YStfrsJx6ykz4yBV2XnNcBR4uGmiojQde',
-          amount: amount
+          amount
         })
 
         let i = 0
@@ -139,7 +139,7 @@ Object.keys(testAPIs).forEach((IPFS) => {
 
         const it = log1.iterator({
           gt: 'zdpuAuNuQ4YBeXY5YStfrsJx6ykz4yBV2XnNcBR4uGmiojQde',
-          amount: amount
+          amount
         })
 
         strictEqual([...it].length, amount)
@@ -150,7 +150,7 @@ Object.keys(testAPIs).forEach((IPFS) => {
 
         const it = log1.iterator({
           gt: 'zdpuAuNuQ4YBeXY5YStfrsJx6ykz4yBV2XnNcBR4uGmiojQde',
-          amount: amount
+          amount
         })
 
         let i = 0

@@ -9,5 +9,5 @@ export {
   difference,
   findUniques,
   isDefined,
-  io 
+  io
 }
