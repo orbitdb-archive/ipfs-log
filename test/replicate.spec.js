@@ -69,7 +69,7 @@ Object.keys(testAPIs).forEach((IPFS) => {
       let processing = 0
 
       const handleMessage = async (message) => {
-        if (id1 === message.from) {
+        if (id1.toString() === message.from.toString()) {
           return
         }
         const hash = Buffer.from(message.data).toString()
@@ -83,7 +83,7 @@ Object.keys(testAPIs).forEach((IPFS) => {
       }
 
       const handleMessage2 = async (message) => {
-        if (id2 === message.from) {
+        if (id2.toString() === message.from.toString()) {
           return
         }
         const hash = Buffer.from(message.data).toString()

@@ -1,11 +1,4 @@
 /*!
-  * prr
-  * (c) 2013 Rod Vagg <rod@vagg.org>
-  * https://github.com/rvagg/prr
-  * License: MIT
-  */
-
-/*!
  * Determine if an object is a Buffer
  *
  * @author   Feross Aboukhadijeh <https://feross.org>
@@ -35,19 +28,15 @@
 
 /*! ieee754. BSD-3-Clause License. Feross Aboukhadijeh <https://feross.org/opensource> */
 
+/*! noble-ed25519 - MIT License (c) 2019 Paul Miller (paulmillr.com) */
+
+/*! noble-secp256k1 - MIT License (c) 2019 Paul Miller (paulmillr.com) */
+
 /*! queue-microtask. MIT License. Feross Aboukhadijeh <https://feross.org/opensource> */
 
+/*! run-parallel-limit. MIT License. Feross Aboukhadijeh <https://feross.org/opensource> */
+
 /*! safe-buffer. MIT License. Feross Aboukhadijeh <https://feross.org/opensource> */
-
-/*! simple-peer. MIT License. Feross Aboukhadijeh <https://feross.org/opensource> */
-
-/**
- * Timestamp for 64-bit time_t, nanosecond precision and strftime
- *
- * @author Yusuke Kawasaki
- * @license MIT
- * @see https://github.com/kawanet/timestamp-nano
- */
 
 /**
  * [js-sha3]{@link https://github.com/emn178/js-sha3}
