@@ -543,7 +543,7 @@ Object.keys(testAPIs).forEach((IPFS) => {
         })
 
         it('throws an error when data from CID is not instance of Log', async () => {
-          const hash = await ipfs.dag.put({})
+          const hash = await write(ipfs, 'dag-cbor', {})
           let err
           try {
             await fromMultihash(ipfs, testIdentity, hash)
