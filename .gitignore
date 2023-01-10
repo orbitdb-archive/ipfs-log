@@ -14,3 +14,4 @@ examples/browser/bundle.js.map
 examples/browser/ipfs.min.js
 examples/browser/ipfslog.min.js
 .nyc_output
+lib/es5
