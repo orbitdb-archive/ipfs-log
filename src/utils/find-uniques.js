@@ -1,5 +1,3 @@
-'use strict'
-
 function findUniques (value, key) {
   // Create an index of the collection
   const uniques = {}
@@ -9,4 +7,4 @@ function findUniques (value, key) {
   return Object.keys(uniques).map(get)
 }
 
-module.exports = findUniques
+export default findUniques

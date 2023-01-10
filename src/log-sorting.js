@@ -1,6 +1,4 @@
-'use strict'
-
-const Clock = require('./lamport-clock')
+import Clock from './lamport-clock.js'
 
 /**
  * Sort two entries as Last-Write-Wins (LWW).
@@ -92,8 +90,10 @@ function NoZeroes (func) {
   return comparator
 }
 
-exports.SortByClocks = SortByClocks
-exports.SortByClockId = SortByClockId
-exports.LastWriteWins = LastWriteWins
-exports.SortByEntryHash = SortByEntryHash
-exports.NoZeroes = NoZeroes
+export default {
+  SortByClocks,
+  SortByClockId,
+  LastWriteWins,
+  SortByEntryHash,
+  NoZeroes
+}

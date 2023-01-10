@@ -1,5 +1,3 @@
-'use strict'
-
 class EntryIndex {
   constructor (entries = {}) {
     this._cache = entries
@@ -26,4 +24,4 @@ class EntryIndex {
   }
 }
 
-module.exports = EntryIndex
+export default EntryIndex

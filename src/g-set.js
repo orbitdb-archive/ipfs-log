@@ -1,5 +1,3 @@
-'use strict'
-
 /**
  * Interface for G-Set CRDT
  *
@@ -17,4 +15,4 @@ class GSet {
   get length () {}
 }
 
-module.exports = GSet
+export default GSet

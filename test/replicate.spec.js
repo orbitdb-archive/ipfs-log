@@ -1,22 +1,16 @@
-'use strict'
-
-const assert = require('assert')
-const rmrf = require('rimraf')
-const fs = require('fs-extra')
-const Log = require('../src/log')
-const IdentityProvider = require('orbit-db-identity-provider')
-const Keystore = require('orbit-db-keystore')
+import { strictEqual } from 'assert'
+import rimraf from 'rimraf'
+import { copy } from 'fs-extra'
+import Log from '../src/log.js'
+import IdentityProvider from 'orbit-db-identity-provider'
+import Keystore from 'orbit-db-keystore'
 
 // Test utils
-const {
-  config,
-  testAPIs,
-  startIpfs,
-  stopIpfs,
-  getIpfsPeerId,
-  waitForPeers,
-  connectPeers
-} = require('orbit-db-test-utils')
+import { config, testAPIs, startIpfs, stopIpfs, getIpfsPeerId, waitForPeers, connectPeers } from 'orbit-db-test-utils'
+
+const { sync: rmrf } = rimraf
+const { fromMultihash } = Log
+const { createIdentity } = IdentityProvider
 
 Object.keys(testAPIs).forEach((IPFS) => {
   describe('ipfs-log - Replication (' + IPFS + ')', function () {
@@ -29,10 +23,10 @@ Object.keys(testAPIs).forEach((IPFS) => {
     let keystore, signingKeystore
 
     before(async () => {
-      rmrf.sync(identityKeysPath)
-      rmrf.sync(signingKeysPath)
-      await fs.copy(identityKeyFixtures, identityKeysPath)
-      await fs.copy(signingKeyFixtures, signingKeysPath)
+      rmrf(identityKeysPath)
+      rmrf(signingKeysPath)
+      await copy(identityKeyFixtures, identityKeysPath)
+      await copy(signingKeyFixtures, signingKeysPath)
 
       // Start two IPFS instances
       ipfsd1 = await startIpfs(IPFS, config.daemon1)
@@ -50,15 +44,15 @@ Object.keys(testAPIs).forEach((IPFS) => {
       signingKeystore = new Keystore(signingKeysPath)
 
       // Create an identity for each peers
-      testIdentity = await IdentityProvider.createIdentity({ id: 'userB', keystore, signingKeystore })
-      testIdentity2 = await IdentityProvider.createIdentity({ id: 'userA', keystore, signingKeystore })
+      testIdentity = await createIdentity({ id: 'userB', keystore, signingKeystore })
+      testIdentity2 = await createIdentity({ id: 'userA', keystore, signingKeystore })
     })
 
     after(async () => {
       await stopIpfs(ipfsd1)
       await stopIpfs(ipfsd2)
-      rmrf.sync(identityKeysPath)
-      rmrf.sync(signingKeysPath)
+      rmrf(identityKeysPath)
+      rmrf(signingKeysPath)
 
       await keystore.close()
       await signingKeystore.close()
@@ -75,7 +69,7 @@ Object.keys(testAPIs).forEach((IPFS) => {
       let processing = 0
 
       const handleMessage = async (message) => {
-        if (id1 === message.from) {
+        if (id1.toString() === message.from.toString()) {
           return
         }
         const hash = Buffer.from(message.data).toString()
@@ -83,13 +77,13 @@ Object.keys(testAPIs).forEach((IPFS) => {
         processing++
         process.stdout.write('\r')
         process.stdout.write(`> Buffer1: ${buffer1.length} - Buffer2: ${buffer2.length}`)
-        const log = await Log.fromMultihash(ipfs1, testIdentity, hash)
+        const log = await fromMultihash(ipfs1, testIdentity, hash)
         await log1.join(log)
         processing--
       }
 
       const handleMessage2 = async (message) => {
-        if (id2 === message.from) {
+        if (id2.toString() === message.from.toString()) {
           return
         }
         const hash = Buffer.from(message.data).toString()
@@ -97,7 +91,7 @@ Object.keys(testAPIs).forEach((IPFS) => {
         processing++
         process.stdout.write('\r')
         process.stdout.write(`> Buffer1: ${buffer1.length} - Buffer2: ${buffer2.length}`)
-        const log = await Log.fromMultihash(ipfs2, testIdentity2, hash)
+        const log = await fromMultihash(ipfs2, testIdentity2, hash)
         await log2.join(log)
         processing--
       }
@@ -152,19 +146,19 @@ Object.keys(testAPIs).forEach((IPFS) => {
         await result.join(log1)
         await result.join(log2)
 
-        assert.strictEqual(buffer1.length, amount)
-        assert.strictEqual(buffer2.length, amount)
-        assert.strictEqual(result.length, amount * 2)
-        assert.strictEqual(log1.length, amount)
-        assert.strictEqual(log2.length, amount)
-        assert.strictEqual(result.values[0].payload, 'A1')
-        assert.strictEqual(result.values[1].payload, 'B1')
-        assert.strictEqual(result.values[2].payload, 'A2')
-        assert.strictEqual(result.values[3].payload, 'B2')
-        assert.strictEqual(result.values[99].payload, 'B50')
-        assert.strictEqual(result.values[100].payload, 'A51')
-        assert.strictEqual(result.values[198].payload, 'A100')
-        assert.strictEqual(result.values[199].payload, 'B100')
+        strictEqual(buffer1.length, amount)
+        strictEqual(buffer2.length, amount)
+        strictEqual(result.length, amount * 2)
+        strictEqual(log1.length, amount)
+        strictEqual(log2.length, amount)
+        strictEqual(result.values[0].payload, 'A1')
+        strictEqual(result.values[1].payload, 'B1')
+        strictEqual(result.values[2].payload, 'A2')
+        strictEqual(result.values[3].payload, 'B2')
+        strictEqual(result.values[99].payload, 'B50')
+        strictEqual(result.values[100].payload, 'A51')
+        strictEqual(result.values[198].payload, 'A100')
+        strictEqual(result.values[199].payload, 'B100')
       })
     })
   })

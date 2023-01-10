@@ -1,20 +1,18 @@
-'use strict'
-
-const assert = require('assert')
-const rmrf = require('rimraf')
-const fs = require('fs-extra')
-const EntryIO = require('../src/entry-io')
-const Log = require('../src/log')
-const Keystore = require('orbit-db-keystore')
-const IdentityProvider = require('orbit-db-identity-provider')
-
+import { strictEqual, deepStrictEqual } from 'assert'
+import rimraf from 'rimraf'
+import { copy } from 'fs-extra'
+import EntryIO from '../src/entry-io.js'
+import Log from '../src/log.js'
+import Keystore from 'orbit-db-keystore'
+import IdentityProvider from 'orbit-db-identity-provider'
 // Test utils
-const {
-  config,
-  testAPIs,
-  startIpfs,
-  stopIpfs
-} = require('orbit-db-test-utils')
+import { config, testAPIs, startIpfs, stopIpfs } from 'orbit-db-test-utils'
+
+const { sync: rmrf } = rimraf
+
+const { fromMultihash } = Log
+const { fetchAll } = EntryIO
+const { createIdentity } = IdentityProvider
 
 let ipfsd, ipfs, testIdentity, testIdentity2, testIdentity3, testIdentity4
 
@@ -29,10 +27,10 @@ Object.keys(testAPIs).forEach((IPFS) => {
     let options, keystore, signingKeystore
 
     before(async () => {
-      rmrf.sync(identityKeysPath)
-      rmrf.sync(signingKeysPath)
-      await fs.copy(identityKeyFixtures, identityKeysPath)
-      await fs.copy(signingKeyFixtures, signingKeysPath)
+      rmrf(identityKeysPath)
+      rmrf(signingKeysPath)
+      await copy(identityKeyFixtures, identityKeysPath)
+      await copy(signingKeyFixtures, signingKeysPath)
       const defaultOptions = { identityKeysPath, signingKeysPath }
 
       keystore = new Keystore(identityKeysPath)
@@ -43,18 +41,18 @@ Object.keys(testAPIs).forEach((IPFS) => {
         return Object.assign({}, defaultOptions, { id: user, keystore, signingKeystore })
       })
 
-      testIdentity = await IdentityProvider.createIdentity(options[0])
-      testIdentity2 = await IdentityProvider.createIdentity(options[1])
-      testIdentity3 = await IdentityProvider.createIdentity(options[2])
-      testIdentity4 = await IdentityProvider.createIdentity(options[3])
+      testIdentity = await createIdentity(options[0])
+      testIdentity2 = await createIdentity(options[1])
+      testIdentity3 = await createIdentity(options[2])
+      testIdentity4 = await createIdentity(options[3])
       ipfsd = await startIpfs(IPFS, config.defaultIpfsConfig)
       ipfs = ipfsd.api
     })
 
     after(async () => {
       await stopIpfs(ipfsd)
-      rmrf.sync(identityKeysPath)
-      rmrf.sync(signingKeysPath)
+      rmrf(identityKeysPath)
+      rmrf(signingKeysPath)
 
       await keystore.close()
       await signingKeystore.close()
@@ -64,8 +62,8 @@ Object.keys(testAPIs).forEach((IPFS) => {
       const log = new Log(ipfs, testIdentity, { logId: 'X' })
       await log.append('one')
       const hash = log.values[0].hash
-      const res = await EntryIO.fetchAll(ipfs, hash, { length: 1 })
-      assert.strictEqual(res.length, 1)
+      const res = await fetchAll(ipfs, hash, { length: 1 })
+      strictEqual(res.length, 1)
     })
 
     it('log with 2 entries', async () => {
@@ -73,8 +71,8 @@ Object.keys(testAPIs).forEach((IPFS) => {
       await log.append('one')
       await log.append('two')
       const hash = last(log.values).hash
-      const res = await EntryIO.fetchAll(ipfs, hash, { length: 2 })
-      assert.strictEqual(res.length, 2)
+      const res = await fetchAll(ipfs, hash, { length: 2 })
+      strictEqual(res.length, 2)
     })
 
     it('loads max 1 entry from a log of 2 entry', async () => {
@@ -82,8 +80,8 @@ Object.keys(testAPIs).forEach((IPFS) => {
       await log.append('one')
       await log.append('two')
       const hash = last(log.values).hash
-      const res = await EntryIO.fetchAll(ipfs, hash, { length: 1 })
-      assert.strictEqual(res.length, 1)
+      const res = await fetchAll(ipfs, hash, { length: 1 })
+      strictEqual(res.length, 1)
     })
 
     it('log with 100 entries', async () => {
@@ -93,8 +91,8 @@ Object.keys(testAPIs).forEach((IPFS) => {
         await log.append('hello' + i)
       }
       const hash = await log.toMultihash()
-      const result = await Log.fromMultihash(ipfs, testIdentity, hash)
-      assert.strictEqual(result.length, count)
+      const result = await fromMultihash(ipfs, testIdentity, hash)
+      strictEqual(result.length, count)
     })
 
     it('load only 42 entries from a log with 100 entries', async () => {
@@ -111,8 +109,8 @@ Object.keys(testAPIs).forEach((IPFS) => {
       }
 
       const hash = await log.toMultihash()
-      const result = await Log.fromMultihash(ipfs, testIdentity, hash, { length: 42 })
-      assert.strictEqual(result.length, 42)
+      const result = await fromMultihash(ipfs, testIdentity, hash, { length: 42 })
+      strictEqual(result.length, 42)
     })
 
     it('load only 99 entries from a log with 100 entries', async () => {
@@ -129,8 +127,8 @@ Object.keys(testAPIs).forEach((IPFS) => {
       }
 
       const hash = await log2.toMultihash()
-      const result = await Log.fromMultihash(ipfs, testIdentity, hash, { length: 99 })
-      assert.strictEqual(result.length, 99)
+      const result = await fromMultihash(ipfs, testIdentity, hash, { length: 99 })
+      strictEqual(result.length, 99)
     })
 
     it('load only 10 entries from a log with 100 entries', async () => {
@@ -155,8 +153,8 @@ Object.keys(testAPIs).forEach((IPFS) => {
 
       await log3.join(log2)
       const hash = await log3.toMultihash()
-      const result = await Log.fromMultihash(ipfs, testIdentity, hash, { length: 10 })
-      assert.strictEqual(result.length, 10)
+      const result = await fromMultihash(ipfs, testIdentity, hash, { length: 10 })
+      strictEqual(result.length, 10)
     })
 
     it('load only 10 entries and then expand to max from a log with 100 entries', async () => {
@@ -187,7 +185,7 @@ Object.keys(testAPIs).forEach((IPFS) => {
       const values3 = log3.values.map((e) => e.payload)
       const values4 = log4.values.map((e) => e.payload)
 
-      assert.deepStrictEqual(values3, values4)
+      deepStrictEqual(values3, values4)
     })
   })
 })

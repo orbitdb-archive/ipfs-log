@@ -95,21 +95,21 @@ Run a simple program:
 
 // For js-ipfs >= 0.38
 
-const Log = require("ipfs-log");
-const IdentityProvider = require("orbit-db-identity-provider");
-const IPFS = require("ipfs");
+import from Log 'ipfs-log'
+import IdentityProvider from 'orbit-db-identity-provider'
+import * as IPFS from 'ipfs'
 
 const start = async () => {
-  const identity = await IdentityProvider.createIdentity({ id: "peerid" });
-  const ipfs = await IPFS.create({ repo: "./path-for-js-ipfs-repo" });
-  const log = new Log(ipfs, identity);
+  const identity = await IdentityProvider.createIdentity({ id: "peerid" })
+  const ipfs = await IPFS.create({ repo: "./path-for-js-ipfs-repo" })
+  const log = new Log(ipfs, identity)
 
-  await log.append({ some: "data" });
-  await log.append("text");
-  console.log(log.values.map((e) => e.payload));
-};
+  await log.append({ some: "data" })
+  await log.append("text")
+  console.log(log.values.map((e) => e.payload))
+}
 
-start();
+start()
 
 // [ { some: 'data' }, 'text' ]
 ```

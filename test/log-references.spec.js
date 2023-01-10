@@ -1,19 +1,15 @@
-'use strict'
-
-const assert = require('assert')
-const rmrf = require('rimraf')
-const fs = require('fs-extra')
-const Log = require('../src/log')
-const IdentityProvider = require('orbit-db-identity-provider')
-const Keystore = require('orbit-db-keystore')
+import { strictEqual } from 'assert'
+import rimraf from 'rimraf'
+import { copy } from 'fs-extra'
+import Log from '../src/log.js'
+import IdentityProvider from 'orbit-db-identity-provider'
+import Keystore from 'orbit-db-keystore'
 
 // Test utils
-const {
-  config,
-  testAPIs,
-  startIpfs,
-  stopIpfs
-} = require('orbit-db-test-utils')
+import { config, testAPIs, startIpfs, stopIpfs } from 'orbit-db-test-utils'
+
+const { sync: rmrf } = rimraf
+const { createIdentity } = IdentityProvider
 
 let ipfsd, ipfs, testIdentity
 
@@ -26,23 +22,23 @@ Object.keys(testAPIs).forEach((IPFS) => {
     let keystore, signingKeystore
 
     before(async () => {
-      rmrf.sync(identityKeysPath)
-      rmrf.sync(signingKeysPath)
-      await fs.copy(identityKeyFixtures, identityKeysPath)
-      await fs.copy(signingKeyFixtures, signingKeysPath)
+      rmrf(identityKeysPath)
+      rmrf(signingKeysPath)
+      await copy(identityKeyFixtures, identityKeysPath)
+      await copy(signingKeyFixtures, signingKeysPath)
 
       keystore = new Keystore(identityKeysPath)
       signingKeystore = new Keystore(signingKeysPath)
 
-      testIdentity = await IdentityProvider.createIdentity({ id: 'userA', keystore, signingKeystore })
+      testIdentity = await createIdentity({ id: 'userA', keystore, signingKeystore })
       ipfsd = await startIpfs(IPFS, config.defaultIpfsConfig)
       ipfs = ipfsd.api
     })
 
     after(async () => {
       await stopIpfs(ipfsd)
-      rmrf.sync(identityKeysPath)
-      rmrf.sync(signingKeysPath)
+      rmrf(identityKeysPath)
+      rmrf(signingKeysPath)
 
       await keystore.close()
       await signingKeystore.close()
@@ -72,14 +68,14 @@ Object.keys(testAPIs).forEach((IPFS) => {
           await log4.append(i.toString(), Math.pow(maxReferenceDistance, 4))
         }
 
-        assert.strict.equal(log1.values[log1.length - 1].next.length, 1)
-        assert.strict.equal(log2.values[log2.length - 1].next.length, 1)
-        assert.strict.equal(log3.values[log3.length - 1].next.length, 1)
-        assert.strict.equal(log4.values[log4.length - 1].next.length, 1)
-        assert.strict.equal(log1.values[log1.length - 1].refs.length, 1)
-        assert.strict.equal(log2.values[log2.length - 1].refs.length, 2)
-        assert.strict.equal(log3.values[log3.length - 1].refs.length, 3)
-        assert.strict.equal(log4.values[log4.length - 1].refs.length, 4)
+        strictEqual(log1.values[log1.length - 1].next.length, 1)
+        strictEqual(log2.values[log2.length - 1].next.length, 1)
+        strictEqual(log3.values[log3.length - 1].next.length, 1)
+        strictEqual(log4.values[log4.length - 1].next.length, 1)
+        strictEqual(log1.values[log1.length - 1].refs.length, 1)
+        strictEqual(log2.values[log2.length - 1].refs.length, 2)
+        strictEqual(log3.values[log3.length - 1].refs.length, 3)
+        strictEqual(log4.values[log4.length - 1].refs.length, 4)
       })
 
       const inputs = [
@@ -114,31 +110,31 @@ Object.keys(testAPIs).forEach((IPFS) => {
               await log1.append((i + 1).toString(), referenceCount)
             }
 
-            assert.strict.equal(log1.values.length, input.amount)
-            assert.strict.equal(log1.values[log1.length - 1].clock.time, input.amount)
+            strictEqual(log1.values.length, input.amount)
+            strictEqual(log1.values[log1.length - 1].clock.time, input.amount)
 
             for (let k = 0; k < input.amount; k++) {
               const idx = log1.length - k - 1
-              assert.strict.equal(log1.values[idx].clock.time, idx + 1)
+              strictEqual(log1.values[idx].clock.time, idx + 1)
 
               // Check the first ref (distance 2)
-              if (log1.values[idx].refs.length > 0) { assert.strict.equal(log1.values[idx].refs[0], log1.values[idx - 2].hash) }
+              if (log1.values[idx].refs.length > 0) { strictEqual(log1.values[idx].refs[0], log1.values[idx - 2].hash) }
 
               // Check the second ref (distance 2)
 
-              if (log1.values[idx].refs.length > 1 && idx > referenceCount) { assert.strict.equal(log1.values[idx].refs[1], log1.values[idx - 4].hash) }
+              if (log1.values[idx].refs.length > 1 && idx > referenceCount) { strictEqual(log1.values[idx].refs[1], log1.values[idx - 4].hash) }
 
               // Check the third ref (distance 4)
-              if (log1.values[idx].refs.length > 2 && idx > referenceCount) { assert.strict.equal(log1.values[idx].refs[2], log1.values[idx - 8].hash) }
+              if (log1.values[idx].refs.length > 2 && idx > referenceCount) { strictEqual(log1.values[idx].refs[2], log1.values[idx - 8].hash) }
 
               // Check the fourth ref (distance 8)
-              if (log1.values[idx].refs.length > 3 && idx > referenceCount) { assert.strict.equal(log1.values[idx].refs[3], log1.values[idx - 16].hash) }
+              if (log1.values[idx].refs.length > 3 && idx > referenceCount) { strictEqual(log1.values[idx].refs[3], log1.values[idx - 16].hash) }
 
               // Check the fifth ref (distance 16)
-              if (log1.values[idx].refs.length > 4 && idx > referenceCount) { assert.strict.equal(log1.values[idx].refs[4], log1.values[idx - 32].hash) }
+              if (log1.values[idx].refs.length > 4 && idx > referenceCount) { strictEqual(log1.values[idx].refs[4], log1.values[idx - 32].hash) }
 
               // Check the reference of each entry
-              if (idx > referenceCount) { assert.strict.equal(log1.values[idx].refs.length, refLength) }
+              if (idx > referenceCount) { strictEqual(log1.values[idx].refs.length, refLength) }
             }
           }
 

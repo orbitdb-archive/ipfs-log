@@ -1,8 +1,8 @@
-'use strict'
+import Clock from './lamport-clock.js'
+import { read, write } from 'orbit-db-io'
+import { isDefined } from './utils/index.js'
+import stringify from 'json-stringify-deterministic'
 
-const Clock = require('./lamport-clock')
-const { isDefined, io } = require('./utils')
-const stringify = require('json-stringify-deterministic')
 const IpfsNotDefinedError = () => new Error('Ipfs instance not defined')
 const IPLD_LINKS = ['next', 'refs']
 const getWriteFormatForVersion = v => v === 0 ? 'dag-pb' : 'dag-cbor'
@@ -43,7 +43,7 @@ class Entry {
       id: logId, // For determining a unique chain
       payload: data, // Can be any JSON.stringifyable data
       next: nexts, // Array of hashes
-      refs: refs,
+      refs,
       v: 2, // To tag the version of this data structure
       clock: clock || new Clock(identity.publicKey)
     }
@@ -103,7 +103,7 @@ class Entry {
 
     // // Ensure `entry` follows the correct format
     const e = Entry.toEntry(entry)
-    return io.write(ipfs, getWriteFormat(e.v), e, { links: IPLD_LINKS, pin })
+    return write(ipfs, getWriteFormat(e.v), e, { links: IPLD_LINKS, pin })
   }
 
   static toEntry (entry, { presigned = false, includeHash = false } = {}) {
@@ -146,7 +146,7 @@ class Entry {
   static async fromMultihash (ipfs, hash) {
     if (!ipfs) throw IpfsNotDefinedError()
     if (!hash) throw new Error(`Invalid hash: ${hash}`)
-    const e = await io.read(ipfs, hash, { links: IPLD_LINKS })
+    const e = await read(ipfs, hash, { links: IPLD_LINKS })
 
     const entry = Entry.toEntry(e)
     entry.hash = hash
@@ -222,6 +222,6 @@ class Entry {
   }
 }
 
-module.exports = Entry
-module.exports.IPLD_LINKS = IPLD_LINKS
-module.exports.getWriteFormat = getWriteFormat
+export default Entry
+export { IPLD_LINKS }
+export { getWriteFormat }
