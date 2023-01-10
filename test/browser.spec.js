@@ -1,5 +1,4 @@
-import levelup from 'levelup'
-import level from 'level-js'
+import { Level } from 'level'
 
 const isBrowser = () => typeof window !== `undefined`
 
@@ -19,12 +18,10 @@ before(async () => {
 
     // If in browser, put the fixture keys in local storage
     // so that Keystore can find them
-    const signingStore = levelup(level('./orbitdb/identity/signingkeys'))
-    const identityStore = levelup(level('./orbitdb/identity/identitykeys'))
+    const signingStore = new Level('./orbitdb/identity/signingkeys')
+    const identityStore = new Level('./orbitdb/identity/identitykeys')
 
     const copyFixtures = []
-    copyFixtures.push(signingStore.open())
-    copyFixtures.push(identityStore.open())
 
     copyFixtures.push(signingStore.put('userA', JSON.stringify(keyA)))
     copyFixtures.push(signingStore.put('userB', JSON.stringify(keyB)))
