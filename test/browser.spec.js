@@ -1,6 +1,6 @@
 import { Level } from 'level'
 
-const isBrowser = () => typeof window !== `undefined`
+const isBrowser = () => typeof window !== 'undefined'
 
 // This file will be picked up by webpack into the
 // tests bundle and the code here gets run when imported
