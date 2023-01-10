@@ -5,11 +5,11 @@ import EntryIO from '../src/entry-io.js'
 import Log from '../src/log.js'
 import Keystore from 'orbit-db-keystore'
 import IdentityProvider from 'orbit-db-identity-provider'
-
 // Test utils
 import { config, testAPIs, startIpfs, stopIpfs } from 'orbit-db-test-utils'
 
-const { sync } = rimraf
+const { sync: rmrf } = rimraf
+
 const { fromMultihash } = Log
 const { fetchAll } = EntryIO
 const { createIdentity } = IdentityProvider
@@ -27,8 +27,8 @@ Object.keys(testAPIs).forEach((IPFS) => {
     let options, keystore, signingKeystore
 
     before(async () => {
-      sync(identityKeysPath)
-      sync(signingKeysPath)
+      rmrf(identityKeysPath)
+      rmrf(signingKeysPath)
       await copy(identityKeyFixtures, identityKeysPath)
       await copy(signingKeyFixtures, signingKeysPath)
       const defaultOptions = { identityKeysPath, signingKeysPath }
@@ -51,8 +51,8 @@ Object.keys(testAPIs).forEach((IPFS) => {
 
     after(async () => {
       await stopIpfs(ipfsd)
-      sync(identityKeysPath)
-      sync(signingKeysPath)
+      rmrf(identityKeysPath)
+      rmrf(signingKeysPath)
 
       await keystore.close()
       await signingKeystore.close()

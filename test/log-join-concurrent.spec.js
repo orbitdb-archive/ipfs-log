@@ -7,7 +7,7 @@ import IdentityProvider from 'orbit-db-identity-provider'
 // Test utils
 import { config, testAPIs, startIpfs, stopIpfs } from 'orbit-db-test-utils'
 
-const { sync } = rimraf
+const { sync: rmrf } = rimraf
 const { SortByEntryHash } = Sorting
 const { createIdentity } = IdentityProvider
 
@@ -20,8 +20,8 @@ Object.keys(testAPIs).forEach(IPFS => {
     const { identityKeyFixtures, signingKeyFixtures, identityKeysPath, signingKeysPath } = config
 
     before(async () => {
-      sync(identityKeysPath)
-      sync(signingKeysPath)
+      rmrf(identityKeysPath)
+      rmrf(signingKeysPath)
       await copy(identityKeyFixtures, identityKeysPath)
       await copy(signingKeyFixtures, signingKeysPath)
       testIdentity = await createIdentity({ id: 'userA', identityKeysPath, signingKeysPath })
@@ -33,8 +33,8 @@ Object.keys(testAPIs).forEach(IPFS => {
       await stopIpfs(ipfsd)
       await testIdentity.provider.keystore.close()
       await testIdentity.provider.signingKeystore.close()
-      sync(identityKeysPath)
-      sync(signingKeysPath)
+      rmrf(identityKeysPath)
+      rmrf(signingKeysPath)
     })
 
     describe('join ', async () => {

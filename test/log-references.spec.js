@@ -8,7 +8,7 @@ import Keystore from 'orbit-db-keystore'
 // Test utils
 import { config, testAPIs, startIpfs, stopIpfs } from 'orbit-db-test-utils'
 
-const { sync } = rimraf
+const { sync: rmrf } = rimraf
 const { createIdentity } = IdentityProvider
 
 let ipfsd, ipfs, testIdentity
@@ -22,8 +22,8 @@ Object.keys(testAPIs).forEach((IPFS) => {
     let keystore, signingKeystore
 
     before(async () => {
-      sync(identityKeysPath)
-      sync(signingKeysPath)
+      rmrf(identityKeysPath)
+      rmrf(signingKeysPath)
       await copy(identityKeyFixtures, identityKeysPath)
       await copy(signingKeyFixtures, signingKeysPath)
 
@@ -37,8 +37,8 @@ Object.keys(testAPIs).forEach((IPFS) => {
 
     after(async () => {
       await stopIpfs(ipfsd)
-      sync(identityKeysPath)
-      sync(signingKeysPath)
+      rmrf(identityKeysPath)
+      rmrf(signingKeysPath)
 
       await keystore.close()
       await signingKeystore.close()

@@ -13,7 +13,7 @@ import Keystore from 'orbit-db-keystore'
 import { config, testAPIs, startIpfs, stopIpfs } from 'orbit-db-test-utils'
 const AccessController = _AccessController
 
-const { sync } = rimraf
+const { sync: rmrf } = rimraf
 const { createIdentity } = IdentityProvider
 const { create, toMultihash, toEntry, fromMultihash, isParent, isEqual, isEntry } = Entry
 
@@ -44,8 +44,8 @@ Object.keys(testAPIs).forEach((IPFS) => {
       await stopIpfs(ipfsd)
       await copy(identityKeyFixtures, identityKeysPath)
       await copy(signingKeyFixtures, signingKeysPath)
-      sync(identityKeysPath)
-      sync(signingKeysPath)
+      rmrf(identityKeysPath)
+      rmrf(signingKeysPath)
       await keystore.close()
       await signingKeystore.close()
     })

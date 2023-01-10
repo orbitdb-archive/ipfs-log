@@ -18,7 +18,7 @@ import { config, testAPIs, startIpfs, stopIpfs } from 'orbit-db-test-utils'
 const { LastWriteWins } = LogSorting
 const FirstWriteWins = (a, b) => LastWriteWins(a, b) * -1
 
-const { sync } = rimraf
+const { sync: rmrf } = rimraf
 const { create } = Entry
 const { createIdentity } = IdentityProvider
 const { fromMultihash, fromEntryHash } = Log
@@ -49,8 +49,8 @@ Object.keys(testAPIs).forEach((IPFS) => {
 
     after(async () => {
       await stopIpfs(ipfsd)
-      sync(signingKeysPath)
-      sync(identityKeysPath)
+      rmrf(signingKeysPath)
+      rmrf(identityKeysPath)
 
       await keystore.close()
       await signingKeystore.close()

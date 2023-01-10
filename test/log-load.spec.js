@@ -16,7 +16,7 @@ import { v1Entries } from './fixtures/v1-entries.fixture.js'
 import { config, MemStore, testAPIs, startIpfs, stopIpfs } from 'orbit-db-test-utils'
 
 const { length: _length } = v1Entries
-const { sync } = rimraf
+const { sync: rmrf } = rimraf
 const { LastWriteWins } = Sorting
 const { createIdentity } = IdentityProvider
 const { fromJSON, fromEntryHash, fromEntry, fromMultihash: _fromMultihash } = Log
@@ -49,8 +49,8 @@ Object.keys(testAPIs).forEach((IPFS) => {
     let keystore, signingKeystore
 
     before(async () => {
-      sync(identityKeysPath)
-      sync(signingKeysPath)
+      rmrf(identityKeysPath)
+      rmrf(signingKeysPath)
       await copy(identityKeyFixtures, identityKeysPath)
       await copy(signingKeyFixtures, signingKeysPath)
 
@@ -71,8 +71,8 @@ Object.keys(testAPIs).forEach((IPFS) => {
 
     after(async () => {
       await stopIpfs(ipfsd)
-      sync(identityKeysPath)
-      sync(signingKeysPath)
+      rmrf(identityKeysPath)
+      rmrf(signingKeysPath)
 
       await keystore.close()
       await signingKeystore.close()
