@@ -18,8 +18,6 @@ jobs:
         run: npm run lint
       - name: Run tests
         run: npm run test
-      - name: Run benchmarks
-        run: npm run benchmark
   test-browser:
     runs-on: ubuntu-latest
     steps:
