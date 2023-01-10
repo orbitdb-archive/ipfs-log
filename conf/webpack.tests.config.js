@@ -15,6 +15,7 @@ export default (env, argv) => {
     devtool: 'source-map',
     plugins: [
       new webpack.ProvidePlugin({
+        process: 'process/browser.js',
         Buffer: ['buffer', 'Buffer']
       })
     ],
@@ -34,6 +35,7 @@ export default (env, argv) => {
       }
     },
     externals: {
+      fs: '{ existsSync: () => true }',
       'fs-extra': '{ copy: () => {} }',
       rimraf: '{ sync: () => {} }'
     },
