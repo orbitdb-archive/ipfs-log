@@ -3,7 +3,7 @@ import rimraf from 'rimraf'
 import { copy } from 'fs-extra'
 import Entry, { IPLD_LINKS } from '../src/entry.js'
 import { AccessController as _AccessController } from '../src/log.js'
-import { io } from '../src/utils/index.js'
+import { read, write } from 'orbit-db-io'
 import IdentityProvider from 'orbit-db-identity-provider'
 import { hello, helloWorld, helloAgain } from './fixtures/v0-entries.fixture.js'
 import { v1Entries } from './fixtures/v1-entries.fixture.js'
@@ -235,8 +235,8 @@ Object.keys(testAPIs).forEach((IPFS) => {
 
       it('creates a entry from ipfs multihash of v0 entries', async () => {
         const expectedHash = 'QmZ8va2fSjRufV1sD6x5mwi6E5GrSjXHx7RiKFVBzkiUNZ'
-        const entry1Hash = await io.write(ipfs, 'dag-pb', toEntry(helloWorld))
-        const entry2Hash = await io.write(ipfs, 'dag-pb', toEntry(helloAgain))
+        const entry1Hash = await write(ipfs, 'dag-pb', toEntry(helloWorld))
+        const entry2Hash = await write(ipfs, 'dag-pb', toEntry(helloAgain))
         const final = await fromMultihash(ipfs, entry2Hash)
 
         strictEqual(final.id, 'A')
@@ -253,8 +253,8 @@ Object.keys(testAPIs).forEach((IPFS) => {
         const expectedHash = 'zdpuAxgKyiM9qkP9yPKCCqrHer9kCqYyr7KbhucsPwwfh6JB3'
         const e1 = v1Entries[0]
         const e2 = v1Entries[1]
-        const entry1Hash = await io.write(ipfs, 'dag-cbor', toEntry(e1), { links: IPLD_LINKS })
-        const entry2Hash = await io.write(ipfs, 'dag-cbor', toEntry(e2), { links: IPLD_LINKS })
+        const entry1Hash = await write(ipfs, 'dag-cbor', toEntry(e1), { links: IPLD_LINKS })
+        const entry2Hash = await write(ipfs, 'dag-cbor', toEntry(e2), { links: IPLD_LINKS })
         const final = await fromMultihash(ipfs, entry2Hash)
         strictEqual(final.id, 'A')
         strictEqual(final.payload, e2.payload)
@@ -274,7 +274,7 @@ Object.keys(testAPIs).forEach((IPFS) => {
         strictEqual(Object.assign({}, finalV1).hash, expectedHashV1)
 
         const expectedHashV0 = 'QmenUDpFksTa3Q9KmUJYjebqvHJcTF2sGQaCH7orY7bXKC'
-        const entryHashV0 = await io.write(ipfs, 'dag-pb', helloWorld)
+        const entryHashV0 = await write(ipfs, 'dag-pb', helloWorld)
         const finalV0 = await fromMultihash(ipfs, entryHashV0)
         strictEqual(finalV0.hash, expectedHashV0)
         strictEqual(Object.assign({}, finalV0).hash, expectedHashV0)

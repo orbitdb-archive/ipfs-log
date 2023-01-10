@@ -5,7 +5,7 @@ import Sorting from '../src/log-sorting.js'
 import bigLogString from './fixtures/big-log.fixture.js'
 import Entry, { IPLD_LINKS, getWriteFormat } from '../src/entry.js'
 import Log from '../src/log.js'
-import { io } from '../src/utils/index.js'
+import { read, write } from 'orbit-db-io'
 import IdentityProvider from 'orbit-db-identity-provider'
 import Keystore from 'orbit-db-keystore'
 import LogCreator from './utils/log-creator.js'
@@ -874,11 +874,11 @@ Object.keys(testAPIs).forEach((IPFS) => {
     describe('Backwards-compatibility v0', () => {
       const entries = [hello, helloWorld, helloAgain]
       before(async () => {
-        await Promise.all(entries.map(e => io.write(ipfs, getWriteFormat(e), toEntry(e), { links: IPLD_LINKS })))
+        await Promise.all(entries.map(e => write(ipfs, getWriteFormat(e), toEntry(e), { links: IPLD_LINKS })))
       })
 
       it('creates a log from v0 json', async () => {
-        const headHash = await io.write(ipfs, 'dag-pb', toEntry(helloAgain), { links: IPLD_LINKS })
+        const headHash = await write(ipfs, 'dag-pb', toEntry(helloAgain), { links: IPLD_LINKS })
         const json = { id: 'A', heads: [headHash] }
         json.heads = await Promise.all(json.heads.map(headHash => fromMultihash(ipfs, headHash)))
         const log = await fromJSON(ipfs, testIdentity, json, { logId: 'A' })
@@ -906,11 +906,11 @@ Object.keys(testAPIs).forEach((IPFS) => {
 
     describe('Backwards-compatibility v1', () => {
       before(async () => {
-        await Promise.all(v1Entries.map(e => io.write(ipfs, getWriteFormat(e), toEntry(e), { links: IPLD_LINKS })))
+        await Promise.all(v1Entries.map(e => write(ipfs, getWriteFormat(e), toEntry(e), { links: IPLD_LINKS })))
       })
 
       it('creates a log from v1 json', async () => {
-        const headHash = await io.write(ipfs, 'dag-cbor', toEntry(v1Entries[_length - 1]), { links: IPLD_LINKS })
+        const headHash = await write(ipfs, 'dag-cbor', toEntry(v1Entries[_length - 1]), { links: IPLD_LINKS })
         const json = { id: 'A', heads: [headHash] }
         json.heads = await Promise.all(json.heads.map(headHash => fromMultihash(ipfs, headHash)))
         const log = await fromJSON(ipfs, testIdentity, json, { logId: 'A' })

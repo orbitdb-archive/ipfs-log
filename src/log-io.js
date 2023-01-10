@@ -2,7 +2,8 @@ import Entry from './entry.js'
 import EntryIO from './entry-io.js'
 import Sorting from './log-sorting.js'
 import { IPFSNotDefinedError, LogNotDefinedError, NotALogError } from './log-errors.js'
-import { isDefined, findUniques, difference, io } from './utils/index.js'
+import { isDefined, findUniques, difference } from './utils/index.js'
+import { read, write } from 'orbit-db-io'
 
 const { LastWriteWins, NoZeroes } = Sorting
 const { fetchAll, fetchParallel } = EntryIO
@@ -25,7 +26,7 @@ class LogIO {
     if (!isDefined(format)) format = 'dag-cbor'
     if (log.values.length < 1) throw new Error('Can\'t serialize an empty log')
 
-    return io.write(ipfs, format, log.toJSON(), { links: IPLD_LINKS })
+    return write(ipfs, format, log.toJSON(), { links: IPLD_LINKS })
   }
 
   /**
@@ -42,7 +43,7 @@ class LogIO {
     if (!isDefined(ipfs)) throw IPFSNotDefinedError()
     if (!isDefined(hash)) throw new Error(`Invalid hash: ${hash}`)
 
-    const logData = await io.read(ipfs, hash, { links: IPLD_LINKS })
+    const logData = await read(ipfs, hash, { links: IPLD_LINKS })
 
     if (!logData.heads || !logData.id) throw NotALogError()
 

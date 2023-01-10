@@ -1,5 +1,6 @@
 import Clock from './lamport-clock.js'
-import { isDefined, io } from './utils/index.js'
+import { read, write } from 'orbit-db-io'
+import { isDefined } from './utils/index.js'
 import stringify from 'json-stringify-deterministic'
 
 const IpfsNotDefinedError = () => new Error('Ipfs instance not defined')
@@ -102,7 +103,7 @@ class Entry {
 
     // // Ensure `entry` follows the correct format
     const e = Entry.toEntry(entry)
-    return io.write(ipfs, getWriteFormat(e.v), e, { links: IPLD_LINKS, pin })
+    return write(ipfs, getWriteFormat(e.v), e, { links: IPLD_LINKS, pin })
   }
 
   static toEntry (entry, { presigned = false, includeHash = false } = {}) {
@@ -145,7 +146,7 @@ class Entry {
   static async fromMultihash (ipfs, hash) {
     if (!ipfs) throw IpfsNotDefinedError()
     if (!hash) throw new Error(`Invalid hash: ${hash}`)
-    const e = await io.read(ipfs, hash, { links: IPLD_LINKS })
+    const e = await read(ipfs, hash, { links: IPLD_LINKS })
 
     const entry = Entry.toEntry(e)
     entry.hash = hash
