@@ -7,7 +7,7 @@ dist/*.js.map
 examples/browser/bundle.js
 test/keystore/
 test-keys/
-test/browser/bundle.js
+test/browser/*bundle.js*
 test/browser/bundle.js.map
 ipfs-log-benchmarks/
 examples/browser/bundle.js.map
