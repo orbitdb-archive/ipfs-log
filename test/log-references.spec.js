@@ -1,17 +1,17 @@
 import { strictEqual } from 'assert'
 import rimraf from 'rimraf'
 import { copy } from 'fs-extra'
-import Log from '../src/log.js'
+import { Log, LRUStorage } from '../src/log.js'
 import IdentityProvider from 'orbit-db-identity-provider'
-import Keystore from 'orbit-db-keystore'
+import Keystore from '../src/Keystore.js'
 
 // Test utils
-import { config, testAPIs, startIpfs, stopIpfs } from 'orbit-db-test-utils'
+import { config, testAPIs } from 'orbit-db-test-utils'
 
 const { sync: rmrf } = rimraf
 const { createIdentity } = IdentityProvider
 
-let ipfsd, ipfs, testIdentity
+let testIdentity
 
 Object.keys(testAPIs).forEach((IPFS) => {
   describe('Log - References (' + IPFS + ')', function () {
@@ -20,6 +20,7 @@ Object.keys(testAPIs).forEach((IPFS) => {
     const { identityKeyFixtures, signingKeyFixtures, identityKeysPath, signingKeysPath } = config
 
     let keystore, signingKeystore
+    const storage = LRUStorage()
 
     before(async () => {
       rmrf(identityKeysPath)
@@ -31,51 +32,69 @@ Object.keys(testAPIs).forEach((IPFS) => {
       signingKeystore = new Keystore(signingKeysPath)
 
       testIdentity = await createIdentity({ id: 'userA', keystore, signingKeystore })
-      ipfsd = await startIpfs(IPFS, config.defaultIpfsConfig)
-      ipfs = ipfsd.api
     })
 
     after(async () => {
-      await stopIpfs(ipfsd)
       rmrf(identityKeysPath)
       rmrf(signingKeysPath)
 
       await keystore.close()
       await signingKeystore.close()
     })
+
     describe('References', () => {
-      it('creates entries with references', async () => {
-        const amount = 64
+      const amount = 64
+
+      it('creates entries with 2 references', async () => {
         const maxReferenceDistance = 2
-        const log1 = new Log(ipfs, testIdentity, { logId: 'A' })
-        const log2 = new Log(ipfs, testIdentity, { logId: 'B' })
-        const log3 = new Log(ipfs, testIdentity, { logId: 'C' })
-        const log4 = new Log(ipfs, testIdentity, { logId: 'D' })
+        const log1 = Log(testIdentity, { logId: 'A', storage })
 
         for (let i = 0; i < amount; i++) {
-          await log1.append(i.toString(), maxReferenceDistance)
+          await log1.append(i.toString(), { pointerCount: maxReferenceDistance })
         }
+
+        const values1 = await log1.values()
+
+        strictEqual(values1[values1.length - 1].refs.length, 1)
+      })
+
+      it('creates entries with 4 references', async () => {
+        const maxReferenceDistance = 2
+        const log2 = Log(testIdentity, { logId: 'B', storage })
 
         for (let i = 0; i < amount * 2; i++) {
-          await log2.append(i.toString(), Math.pow(maxReferenceDistance, 2))
+          await log2.append(i.toString(), { pointerCount: Math.pow(maxReferenceDistance, 2) })
         }
+
+        const values2 = await log2.values()
+
+        strictEqual(values2[values2.length - 1].refs.length, 2)
+      })
+
+      it('creates entries with 8 references', async () => {
+        const maxReferenceDistance = 2
+        const log3 = Log(testIdentity, { logId: 'C', storage })
 
         for (let i = 0; i < amount * 3; i++) {
-          await log3.append(i.toString(), Math.pow(maxReferenceDistance, 3))
+          await log3.append(i.toString(), { pointerCount: Math.pow(maxReferenceDistance, 3) })
         }
+
+        const values3 = await log3.values()
+
+        strictEqual(values3[values3.length - 1].refs.length, 3)
+      })
+
+      it('creates entries with 16 references', async () => {
+        const maxReferenceDistance = 2
+        const log4 = Log(testIdentity, { logId: 'D', storage })
 
         for (let i = 0; i < amount * 4; i++) {
-          await log4.append(i.toString(), Math.pow(maxReferenceDistance, 4))
+          await log4.append(i.toString(), { pointerCount: Math.pow(maxReferenceDistance, 4) })
         }
 
-        strictEqual(log1.values[log1.length - 1].next.length, 1)
-        strictEqual(log2.values[log2.length - 1].next.length, 1)
-        strictEqual(log3.values[log3.length - 1].next.length, 1)
-        strictEqual(log4.values[log4.length - 1].next.length, 1)
-        strictEqual(log1.values[log1.length - 1].refs.length, 1)
-        strictEqual(log2.values[log2.length - 1].refs.length, 2)
-        strictEqual(log3.values[log3.length - 1].refs.length, 3)
-        strictEqual(log4.values[log4.length - 1].refs.length, 4)
+        const values4 = await log4.values()
+
+        strictEqual(values4[values4.length - 1].refs.length, 4)
       })
 
       const inputs = [
@@ -105,36 +124,38 @@ Object.keys(testAPIs).forEach((IPFS) => {
       inputs.forEach(input => {
         it(`has ${input.refLength} references, max distance ${input.referenceCount}, total of ${input.amount} entries`, async () => {
           const test = async (amount, referenceCount, refLength) => {
-            const log1 = new Log(ipfs, testIdentity, { logId: 'A' })
+            const log1 = Log(testIdentity, { logId: 'A', storage })
             for (let i = 0; i < amount; i++) {
-              await log1.append((i + 1).toString(), referenceCount)
+              await log1.append((i + 1).toString(), { pointerCount: referenceCount })
             }
 
-            strictEqual(log1.values.length, input.amount)
-            strictEqual(log1.values[log1.length - 1].clock.time, input.amount)
+            const values = await log1.values()
+
+            strictEqual(values.length, input.amount)
+            strictEqual(values[values.length - 1].clock.time, input.amount)
 
             for (let k = 0; k < input.amount; k++) {
-              const idx = log1.length - k - 1
-              strictEqual(log1.values[idx].clock.time, idx + 1)
+              const idx = values.length - k - 1
+              strictEqual(values[idx].clock.time, idx + 1)
 
               // Check the first ref (distance 2)
-              if (log1.values[idx].refs.length > 0) { strictEqual(log1.values[idx].refs[0], log1.values[idx - 2].hash) }
+              if (values[idx].refs.length > 0) { strictEqual(values[idx].refs[0], values[idx - 2].hash) }
 
               // Check the second ref (distance 2)
 
-              if (log1.values[idx].refs.length > 1 && idx > referenceCount) { strictEqual(log1.values[idx].refs[1], log1.values[idx - 4].hash) }
+              if (values[idx].refs.length > 1 && idx > referenceCount) { strictEqual(values[idx].refs[1], values[idx - 4].hash) }
 
               // Check the third ref (distance 4)
-              if (log1.values[idx].refs.length > 2 && idx > referenceCount) { strictEqual(log1.values[idx].refs[2], log1.values[idx - 8].hash) }
+              if (values[idx].refs.length > 2 && idx > referenceCount) { strictEqual(values[idx].refs[2], values[idx - 8].hash) }
 
               // Check the fourth ref (distance 8)
-              if (log1.values[idx].refs.length > 3 && idx > referenceCount) { strictEqual(log1.values[idx].refs[3], log1.values[idx - 16].hash) }
+              if (values[idx].refs.length > 3 && idx > referenceCount) { strictEqual(values[idx].refs[3], values[idx - 16].hash) }
 
               // Check the fifth ref (distance 16)
-              if (log1.values[idx].refs.length > 4 && idx > referenceCount) { strictEqual(log1.values[idx].refs[4], log1.values[idx - 32].hash) }
+              if (values[idx].refs.length > 4 && idx > referenceCount) { strictEqual(values[idx].refs[4], values[idx - 32].hash) }
 
               // Check the reference of each entry
-              if (idx > referenceCount) { strictEqual(log1.values[idx].refs.length, refLength) }
+              if (idx > referenceCount) { strictEqual(values[idx].refs.length, refLength) }
             }
           }
 

@@ -1,10 +1,11 @@
 import { strictEqual, deepStrictEqual } from 'assert'
 import rimraf from 'rimraf'
 import { copy } from 'fs-extra'
-import Log from '../src/log.js'
+import { Log, MemoryStorage } from '../src/log.js'
 import IdentityProvider from 'orbit-db-identity-provider'
-import Keystore from 'orbit-db-keystore'
+import Keystore from '../src/Keystore.js'
 import LogCreator from './utils/log-creator.js'
+import all from 'it-all'
 
 // Test utils
 import { config, testAPIs, startIpfs, stopIpfs } from 'orbit-db-test-utils'
@@ -50,242 +51,347 @@ Object.keys(testAPIs).forEach((IPFS) => {
 
     describe('Basic iterator functionality', () => {
       let log1
+      let startHash
+      const hashes = []
+      const logSize = 100
+      const storage = MemoryStorage()
 
       beforeEach(async () => {
-        log1 = new Log(ipfs, testIdentity, { logId: 'X' })
+        log1 = Log(testIdentity, { logId: 'X', storage })
 
-        for (let i = 0; i <= 100; i++) {
-          await log1.append('entry' + i)
+        for (let i = 0; i < logSize; i++) {
+          const entry = await log1.append('entry' + i)
+          hashes.push([entry.hash, hashes.length])
         }
-      })
 
-      it('returns a Symbol.iterator object', async () => {
-        const it = log1.iterator({
-          lte: 'zdpuAuNuQ4YBeXY5YStfrsJx6ykz4yBV2XnNcBR4uGmiojQde',
-          amount: 0
-        })
-
-        strictEqual(typeof it[Symbol.iterator], 'function')
-        deepStrictEqual(it.next(), { value: undefined, done: true })
+        // entry67
+        // startHash = 'zdpuAxCuaH2R7AYKZ6ZBeeA94v3FgmHZ8wCfDy7pLVcoc3zSo'
+        startHash = hashes[67][0]
+        strictEqual(startHash, hashes[67][0])
       })
 
       it('returns length with lte and amount', async () => {
         const amount = 10
+
         const it = log1.iterator({
-          lte: 'zdpuAuNuQ4YBeXY5YStfrsJx6ykz4yBV2XnNcBR4uGmiojQde',
+          lte: startHash,
           amount
         })
 
-        strictEqual([...it].length, 10)
+        const result = await all(it)
+
+        strictEqual([...result].length, 10)
       })
 
       it('returns entries with lte and amount', async () => {
         const amount = 10
 
         const it = log1.iterator({
-          lte: 'zdpuAuNuQ4YBeXY5YStfrsJx6ykz4yBV2XnNcBR4uGmiojQde',
+          lte: startHash,
           amount
         })
 
         let i = 0
-        for (const entry of it) {
+        for await (const entry of it) {
           strictEqual(entry.payload, 'entry' + (67 - i++))
         }
+
+        strictEqual(i, amount)
       })
 
       it('returns length with lt and amount', async () => {
         const amount = 10
 
         const it = log1.iterator({
-          lt: 'zdpuAuNuQ4YBeXY5YStfrsJx6ykz4yBV2XnNcBR4uGmiojQde',
+          lt: startHash,
           amount
         })
 
-        strictEqual([...it].length, amount)
+        const result = await all(it)
+
+        strictEqual([...result].length, amount)
       })
 
       it('returns entries with lt and amount', async () => {
         const amount = 10
 
         const it = log1.iterator({
-          lt: 'zdpuAuNuQ4YBeXY5YStfrsJx6ykz4yBV2XnNcBR4uGmiojQde',
-          amount
-        })
-
-        let i = 1
-        for (const entry of it) {
-          strictEqual(entry.payload, 'entry' + (67 - i++))
-        }
-      })
-
-      it('returns correct length with gt and amount', async () => {
-        const amount = 5
-        const it = log1.iterator({
-          gt: 'zdpuAuNuQ4YBeXY5YStfrsJx6ykz4yBV2XnNcBR4uGmiojQde',
+          lt: startHash,
           amount
         })
 
         let i = 0
-        let count = 0
-        for (const entry of it) {
-          strictEqual(entry.payload, 'entry' + (72 - i++))
-          count++
+        for await (const entry of it) {
+          strictEqual(entry.payload, 'entry' + (66 - i++))
         }
-        strictEqual(count, amount)
+
+        strictEqual(i, amount)
+      })
+
+      it('returns correct length with gt and amount', async () => {
+        const amount = 5
+
+        const it = log1.iterator({
+          gt: startHash,
+          amount
+        })
+
+        let i = 0
+        for await (const entry of it) {
+          strictEqual(entry.payload, 'entry' + (73 - i++))
+        }
+
+        strictEqual(i, amount)
       })
 
       it('returns length with gte and amount', async () => {
         const amount = 12
 
         const it = log1.iterator({
-          gt: 'zdpuAuNuQ4YBeXY5YStfrsJx6ykz4yBV2XnNcBR4uGmiojQde',
+          gte: startHash,
           amount
         })
 
-        strictEqual([...it].length, amount)
+        const result = await all(it)
+
+        strictEqual([...result].length, amount)
       })
 
       it('returns entries with gte and amount', async () => {
         const amount = 12
 
         const it = log1.iterator({
-          gt: 'zdpuAuNuQ4YBeXY5YStfrsJx6ykz4yBV2XnNcBR4uGmiojQde',
+          gte: startHash,
           amount
         })
 
         let i = 0
-        for (const entry of it) {
+        for await (const entry of it) {
           strictEqual(entry.payload, 'entry' + (79 - i++))
         }
+
+        strictEqual(i, amount)
       })
 
-      /* eslint-disable camelcase */
       it('iterates with lt and gt', async () => {
+        const expectedHashes = hashes.slice().slice(0, 12).map(e => e[0])
         const it = log1.iterator({
-          gt: 'zdpuAymZUrYbHgwfYK76xXYhzxNqwaXRWWrn5kmRsZJFdqBEz',
-          lt: 'zdpuAoDcWRiChLXnGskymcGrM1VdAjsaFrsXvNZmcDattA7AF'
+          gt: expectedHashes[0],
+          lt: expectedHashes[expectedHashes.length - 1]
         })
-        const hashes = [...it].map(e => e.hash)
+        const result = await all(it)
+        const hashes_ = await Promise.all([...result.reverse()].map(e => e.hash))
 
-        // neither hash should appear in the array
-        strictEqual(hashes.indexOf('zdpuAymZUrYbHgwfYK76xXYhzxNqwaXRWWrn5kmRsZJFdqBEz'), -1)
-        strictEqual(hashes.indexOf('zdpuAoDcWRiChLXnGskymcGrM1VdAjsaFrsXvNZmcDattA7AF'), -1)
-        strictEqual(hashes.length, 10)
+        strictEqual(hashes_.length, 10)
+
+        let i = 0
+        for (const h of hashes_) {
+          strictEqual(expectedHashes[i + 1], h)
+          i++
+        }
+        strictEqual(i, 10)
       })
 
       it('iterates with lt and gte', async () => {
+        const expectedHashes = hashes.slice().slice(0, 26).map(e => e[0])
         const it = log1.iterator({
-          gte: 'zdpuAt7YtNE1i9APJitGyKomcmxjc2BDHa57wkrjq4onqBNaR',
-          lt: 'zdpuAr8N4vzqcB5sh5JLcr6Eszo4HnYefBWDbBBwwrTPo6kU6'
+          gte: expectedHashes[0],
+          lt: expectedHashes[expectedHashes.length - 1]
         })
-        const hashes = [...it].map(e => e.hash)
+        const result = await all(it)
+        const hashes_ = await Promise.all([...result].map(e => e.hash))
 
-        // only the gte hash should appear in the array
-        strictEqual(hashes.indexOf('zdpuAt7YtNE1i9APJitGyKomcmxjc2BDHa57wkrjq4onqBNaR'), 24)
-        strictEqual(hashes.indexOf('zdpuAr8N4vzqcB5sh5JLcr6Eszo4HnYefBWDbBBwwrTPo6kU6'), -1)
-        strictEqual(hashes.length, 25)
+        strictEqual(hashes_.length, 25)
+        strictEqual(hashes_.indexOf(expectedHashes[0]), 24)
+        strictEqual(hashes_.indexOf(expectedHashes[expectedHashes.length - 1]), -1)
+        strictEqual(hashes_.indexOf(expectedHashes[expectedHashes.length - 2]), 0)
+
+        let i = 0
+        for (const h of hashes_) {
+          strictEqual(expectedHashes[expectedHashes.length - 2 - i], h)
+          i++
+        }
+        strictEqual(i, 25)
       })
 
       it('iterates with lte and gt', async () => {
+        const expectedHashes = hashes.slice().slice(0, 5).map(e => e[0])
         const it = log1.iterator({
-          gt: 'zdpuAqUrGrPa4AaZAQbCH4yxQfEjB32rdFY743XCgyGW8iAuU',
-          lte: 'zdpuAwkagwE9D2jUtLnDiCPqBGh9xhpnaX8iEDQ3K7HRmjggi'
+          gt: expectedHashes[0],
+          lte: expectedHashes[expectedHashes.length - 1]
         })
-        const hashes = [...it].map(e => e.hash)
+        const result = await all(it)
+        const hashes_ = await Promise.all([...result].map(e => e.hash))
 
-        // only the lte hash should appear in the array
-        strictEqual(hashes.indexOf('zdpuAqUrGrPa4AaZAQbCH4yxQfEjB32rdFY743XCgyGW8iAuU'), -1)
-        strictEqual(hashes.indexOf('zdpuAwkagwE9D2jUtLnDiCPqBGh9xhpnaX8iEDQ3K7HRmjggi'), 0)
-        strictEqual(hashes.length, 4)
+        strictEqual(hashes_.length, 4)
+        strictEqual(hashes_.indexOf(expectedHashes[0]), -1)
+        strictEqual(hashes_.indexOf(expectedHashes[expectedHashes.length - 1]), 0)
+        strictEqual(hashes_.indexOf(expectedHashes[expectedHashes.length - 2]), 1)
+        strictEqual(hashes_.indexOf(expectedHashes[expectedHashes.length - 3]), 2)
+        strictEqual(hashes_.indexOf(expectedHashes[expectedHashes.length - 4]), 3)
       })
 
       it('iterates with lte and gte', async () => {
+        const expectedHashes = hashes.slice().slice(0, 10).map(e => e[0])
         const it = log1.iterator({
-          gte: 'zdpuAzG5AD1GdeNffSskTErjjPbAb95QiNyoaQSrbB62eqYSD',
-          lte: 'zdpuAuujURnUUxVw338Xwh47zGEFjjbaZXXARHPik6KYUcUVk'
+          gte: expectedHashes[0],
+          lte: expectedHashes[expectedHashes.length - 1]
         })
-        const hashes = [...it].map(e => e.hash)
+        const result = await all(it)
+        const hashes_ = await Promise.all([...result].map(e => e.hash))
 
-        // neither hash should appear in the array
-        strictEqual(hashes.indexOf('zdpuAzG5AD1GdeNffSskTErjjPbAb95QiNyoaQSrbB62eqYSD'), 9)
-        strictEqual(hashes.indexOf('zdpuAuujURnUUxVw338Xwh47zGEFjjbaZXXARHPik6KYUcUVk'), 0)
-        strictEqual(hashes.length, 10)
+        strictEqual(hashes_.length, 10)
+        strictEqual(hashes_.indexOf(expectedHashes[0]), 9)
+        strictEqual(hashes_.indexOf(expectedHashes[expectedHashes.length - 1]), 0)
+
+        let i = 0
+        for (const h of hashes_) {
+          strictEqual(expectedHashes[expectedHashes.length - 1 - i], h)
+          i++
+        }
+        strictEqual(i, 10)
+      })
+
+      it('iterates the full log by default', async () => {
+        const expectedHashes = hashes.slice().map(e => e[0])
+        const it = log1.iterator({})
+        const result = await all(it)
+        const hashes_ = await Promise.all([...result].map(e => e.hash))
+
+        strictEqual(hashes_.length, logSize)
+
+        let i = 0
+        for (const h of hashes_) {
+          strictEqual(expectedHashes[expectedHashes.length - 1 - i], h)
+          i++
+        }
+
+        strictEqual(i, logSize)
+      })
+
+      it('iterates the full log with gte and lte and amount', async () => {
+        const expectedHashes = hashes.slice().map(e => e[0])
+        const it = log1.iterator({
+          gte: expectedHashes[0],
+          lte: expectedHashes[expectedHashes.length - 1],
+          amount: logSize
+        })
+        const result = await all(it)
+        const hashes_ = await Promise.all([...result].map(e => e.hash))
+
+        strictEqual(hashes_.length, logSize)
+
+        let i = 0
+        for (const h of hashes_) {
+          strictEqual(expectedHashes[expectedHashes.length - 1 - i], h)
+          i++
+        }
+
+        strictEqual(i, logSize)
       })
 
       it('returns length with gt and default amount', async () => {
         const it = log1.iterator({
-          gt: 'zdpuAuNuQ4YBeXY5YStfrsJx6ykz4yBV2XnNcBR4uGmiojQde'
+          gt: startHash
         })
 
-        strictEqual([...it].length, 33)
+        const result = await all(it)
+
+        strictEqual([...result].length, 32)
       })
 
       it('returns entries with gt and default amount', async () => {
         const it = log1.iterator({
-          gt: 'zdpuAuNuQ4YBeXY5YStfrsJx6ykz4yBV2XnNcBR4uGmiojQde'
+          gt: startHash
         })
 
         let i = 0
-        for (const entry of it) {
-          strictEqual(entry.payload, 'entry' + (100 - i++))
+        for await (const entry of it) {
+          strictEqual(entry.payload, 'entry' + (logSize - 1 - i++))
         }
+
+        strictEqual(i, 32)
       })
 
       it('returns length with gte and default amount', async () => {
-        const it = log1.iterator({
-          gte: 'zdpuAuNuQ4YBeXY5YStfrsJx6ykz4yBV2XnNcBR4uGmiojQde'
+        const it = await log1.iterator({
+          gte: startHash
         })
 
-        strictEqual([...it].length, 34)
+        const result = await all(it)
+
+        strictEqual([...result].length, 33)
       })
 
       it('returns entries with gte and default amount', async () => {
         const it = log1.iterator({
-          gte: 'zdpuAuNuQ4YBeXY5YStfrsJx6ykz4yBV2XnNcBR4uGmiojQde'
+          gte: startHash
         })
 
         let i = 0
-        for (const entry of it) {
-          strictEqual(entry.payload, 'entry' + (100 - i++))
+        for await (const entry of it) {
+          strictEqual(entry.payload, 'entry' + (logSize - 1 - i++))
         }
+
+        strictEqual(i, 33)
       })
 
       it('returns length with lt and default amount value', async () => {
         const it = log1.iterator({
-          lt: 'zdpuAuNuQ4YBeXY5YStfrsJx6ykz4yBV2XnNcBR4uGmiojQde'
+          lt: startHash
         })
 
-        strictEqual([...it].length, 67)
+        const result = await all(it)
+
+        strictEqual([...result].length, 67)
       })
 
       it('returns entries with lt and default amount value', async () => {
         const it = log1.iterator({
-          lt: 'zdpuAuNuQ4YBeXY5YStfrsJx6ykz4yBV2XnNcBR4uGmiojQde'
+          lt: startHash
         })
 
         let i = 0
-        for (const entry of it) {
+        for await (const entry of it) {
           strictEqual(entry.payload, 'entry' + (66 - i++))
         }
+        strictEqual(i, 67)
       })
 
       it('returns length with lte and default amount value', async () => {
         const it = log1.iterator({
-          lte: 'zdpuAuNuQ4YBeXY5YStfrsJx6ykz4yBV2XnNcBR4uGmiojQde'
+          lte: startHash
         })
 
-        strictEqual([...it].length, 68)
+        const result = await all(it)
+
+        strictEqual([...result].length, 68)
       })
 
       it('returns entries with lte and default amount value', async () => {
         const it = log1.iterator({
-          lte: 'zdpuAuNuQ4YBeXY5YStfrsJx6ykz4yBV2XnNcBR4uGmiojQde'
+          lte: startHash
         })
 
         let i = 0
-        for (const entry of it) {
+        for await (const entry of it) {
           strictEqual(entry.payload, 'entry' + (67 - i++))
         }
+
+        strictEqual(i, 68)
+      })
+
+      it('returns zero entries when amount is 0', async () => {
+        const it = log1.iterator({
+          amount: 0
+        })
+
+        let i = 0
+        for await (const entry of it) { // eslint-disable-line no-unused-vars
+          i++
+        }
+
+        strictEqual(i, 0)
       })
     })
 
@@ -299,50 +405,74 @@ Object.keys(testAPIs).forEach((IPFS) => {
 
       it('returns the full length from all heads', async () => {
         const it = fixture.log.iterator({
-          lte: fixture.log.heads
+          lte: fixture.log.heads()
         })
 
-        strictEqual([...it].length, 16)
+        const result = await all(it)
+
+        strictEqual([...result].length, 16)
       })
 
       it('returns partial entries from all heads', async () => {
         const it = fixture.log.iterator({
-          lte: fixture.log.heads,
+          lte: fixture.log.heads(),
           amount: 6
         })
 
-        deepStrictEqual([...it].map(e => e.payload),
+        const result = await all(it)
+
+        deepStrictEqual([...result].map(e => e.payload),
           ['entryA10', 'entryA9', 'entryA8', 'entryA7', 'entryC0', 'entryA6'])
       })
 
       it('returns partial logs from single heads #1', async () => {
         const it = fixture.log.iterator({
-          lte: [fixture.log.heads[0]]
+          lte: [fixture.log.heads()[0]]
         })
 
-        strictEqual([...it].length, 10)
+        const result = await all(it)
+
+        strictEqual([...result].length, 10)
       })
 
       it('returns partial logs from single heads #2', async () => {
         const it = fixture.log.iterator({
-          lte: [fixture.log.heads[1]]
+          lte: [fixture.log.heads()[1]]
         })
 
-        strictEqual([...it].length, 11)
+        const result = await all(it)
+
+        strictEqual([...result].length, 11)
       })
 
-      it('throws error if lt/lte not a string or array of entries', async () => {
+      it('throws error if lte not a string or array of entries', async () => {
         let errMsg
 
         try {
-          fixture.log.iterator({
-            lte: fixture.log.heads[1]
+          const it = fixture.log.iterator({
+            lte: false
           })
+          await all(it)
         } catch (e) {
           errMsg = e.message
         }
 
-        strictEqual(errMsg, 'lt or lte must be a string or array of Entries')
+        strictEqual(errMsg, 'lte must be a string or an array of Entries')
+      })
+
+      it('throws error if lt not a string or array of entries', async () => {
+        let errMsg
+
+        try {
+          const it = fixture.log.iterator({
+            lt: {}
+          })
+          await all(it)
+        } catch (e) {
+          errMsg = e.message
+        }
+
+        strictEqual(errMsg, 'lt must be a string or an array of Entries')
       })
     })
   })

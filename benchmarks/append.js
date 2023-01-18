@@ -1,33 +1,42 @@
-const { startIpfs, stopIpfs, config } = require('orbit-db-test-utils')
-const createLog = require('./utils/create-log')
+import IdentityProvider from 'orbit-db-identity-provider'
+import { Log, MemoryStorage } from '../src/log.js'
 
-const base = {
-  prepare: async function () {
-    const ipfsd = await startIpfs('js-ipfs', config)
-    const { log } = await createLog(ipfsd.api, 'A')
-    return { log, ipfsd }
-  },
-  cycle: async function ({ log }) {
-    await log.append('Hello', 32)
-  },
-  teardown: async function ({ ipfsd }) {
-    await stopIpfs(ipfsd)
-  }
+// State
+let log
+
+// Metrics
+let totalQueries = 0
+let seconds = 0
+let queriesPerSecond = 0
+let lastTenSeconds = 0
+
+const queryLoop = async () => {
+  await log.append(totalQueries.toString())
+  totalQueries++
+  lastTenSeconds++
+  queriesPerSecond++
+  setImmediate(queryLoop)
 }
 
-const baseline = {
-  while: ({ stats, startTime, baselineLimit }) => {
-    return stats.count < baselineLimit
-  }
-}
+;(async () => {
+  console.log('Starting benchmark...')
 
-const stress = {
-  while: ({ stats, startTime, stressLimit }) => {
-    return process.hrtime(startTime)[0] < stressLimit
-  }
-}
+  const identity = await IdentityProvider.createIdentity({ id: 'userA' })
+  const storage = MemoryStorage()
 
-module.exports = [
-  { name: 'append-baseline', ...base, ...baseline },
-  { name: 'append-stress', ...base, ...stress }
-]
+  log = Log(identity, { logId: 'A', storage })
+
+  // Output metrics at 1 second interval
+  setInterval(() => {
+    seconds++
+    if (seconds % 10 === 0) {
+      console.log(`--> Average of ${lastTenSeconds / 10} q/s in the last 10 seconds`)
+      if (lastTenSeconds === 0) throw new Error('Problems!')
+      lastTenSeconds = 0
+    }
+    console.log(`${queriesPerSecond} queries per second, ${totalQueries} queries in ${seconds} seconds (Entry count: ${log.values.length})`)
+    queriesPerSecond = 0
+  }, 1000)
+
+  setImmediate(queryLoop)
+})()

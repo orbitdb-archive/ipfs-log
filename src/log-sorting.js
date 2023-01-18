@@ -23,25 +23,6 @@ function LastWriteWins (a, b) {
 }
 
 /**
- * Sort two entries by their hash.
- *
- * @param {Entry} a First entry
- * @param {Entry} b Second entry
- * @returns {number} 1 if a is latest, -1 if b is latest
- */
-function SortByEntryHash (a, b) {
-  // Ultimate conflict resolution (compare hashes)
-  const compareHash = (a, b) => a.hash < b.hash ? -1 : 1
-  // Sort two entries by their clock id, if the same then compare hashes
-  const sortById = (a, b) => SortByClockId(a, b, compareHash)
-  // Sort two entries by their clock time, if concurrent,
-  // determine sorting using provided conflict resolution function
-  const sortByEntryClocks = (a, b) => SortByClocks(a, b, sortById)
-  // Sort entries by clock time as the primary sort criteria
-  return sortByEntryClocks(a, b)
-}
-
-/**
  * Sort two entries by their clock time.
  * @param {Entry} a First entry to compare
  * @param {Entry} b Second entry to compare
@@ -94,6 +75,5 @@ export default {
   SortByClocks,
   SortByClockId,
   LastWriteWins,
-  SortByEntryHash,
   NoZeroes
 }

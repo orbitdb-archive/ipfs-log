@@ -1,9 +1,9 @@
 import { strictEqual, deepStrictEqual } from 'assert'
 import rimraf from 'rimraf'
 import { copy } from 'fs-extra'
-import Log from '../src/log.js'
+import { Log, MemoryStorage, LRUStorage, IPFSBlockStorage } from '../src/log.js'
 import IdentityProvider from 'orbit-db-identity-provider'
-import Keystore from 'orbit-db-keystore'
+import Keystore from '../src/Keystore.js'
 
 // Test utils
 import { config, testAPIs, startIpfs, stopIpfs } from 'orbit-db-test-utils'
@@ -39,24 +39,26 @@ Object.keys(testAPIs).forEach((IPFS) => {
 
     after(async () => {
       await stopIpfs(ipfsd)
-      rmrf(identityKeysPath)
-      rmrf(signingKeysPath)
-
       await keystore.close()
       await signingKeystore.close()
+      rmrf(identityKeysPath)
+      rmrf(signingKeysPath)
     })
 
     describe('is a CRDT', () => {
+      const logId = 'X'
+
       let log1, log2, log3
 
       beforeEach(async () => {
-        log1 = new Log(ipfs, testIdentity, { logId: 'X' })
-        log2 = new Log(ipfs, testIdentity2, { logId: 'X' })
-        log3 = new Log(ipfs, testIdentity3, { logId: 'X' })
+        log1 = Log(testIdentity, { logId })
+        log2 = Log(testIdentity2, { logId })
+        log3 = Log(testIdentity3, { logId })
       })
 
       it('join is associative', async () => {
         const expectedElementsCount = 6
+        const storage = MemoryStorage()
 
         await log1.append('helloA1')
         await log1.append('helloA2')
@@ -69,11 +71,11 @@ Object.keys(testAPIs).forEach((IPFS) => {
         await log2.join(log3)
         await log1.join(log2)
 
-        const res1 = log1.values.slice()
+        const res1 = await log1.values()
 
-        log1 = new Log(ipfs, testIdentity, { logId: 'X' })
-        log2 = new Log(ipfs, testIdentity2, { logId: 'X' })
-        log3 = new Log(ipfs, testIdentity3, { logId: 'X' })
+        log1 = Log(testIdentity, { logId, storage })
+        log2 = Log(testIdentity2, { logId, storage })
+        log3 = Log(testIdentity3, { logId, storage })
         await log1.append('helloA1')
         await log1.append('helloA2')
         await log2.append('helloB1')
@@ -85,16 +87,17 @@ Object.keys(testAPIs).forEach((IPFS) => {
         await log1.join(log2)
         await log3.join(log1)
 
-        const res2 = log3.values.slice()
+        const res2 = await log3.values()
 
         // associativity: a + (b + c) == (a + b) + c
         strictEqual(res1.length, expectedElementsCount)
         strictEqual(res2.length, expectedElementsCount)
-        deepStrictEqual(res1, res2)
+        deepStrictEqual(res1.map(e => e.hash), res2.map(e => e.hash))
       })
 
       it('join is commutative', async () => {
         const expectedElementsCount = 4
+        const storage = LRUStorage()
 
         await log1.append('helloA1')
         await log1.append('helloA2')
@@ -103,10 +106,10 @@ Object.keys(testAPIs).forEach((IPFS) => {
 
         // b + a
         await log2.join(log1)
-        const res1 = log2.values.slice()
+        const res1 = await log2.values()
 
-        log1 = new Log(ipfs, testIdentity, { logId: 'X' })
-        log2 = new Log(ipfs, testIdentity2, { logId: 'X' })
+        log1 = Log(testIdentity, { logId, storage })
+        log2 = Log(testIdentity2, { logId, storage })
         await log1.append('helloA1')
         await log1.append('helloA2')
         await log2.append('helloB1')
@@ -114,104 +117,106 @@ Object.keys(testAPIs).forEach((IPFS) => {
 
         // a + b
         await log1.join(log2)
-        const res2 = log1.values.slice()
+        const res2 = await log1.values()
 
         // commutativity: a + b == b + a
         strictEqual(res1.length, expectedElementsCount)
         strictEqual(res2.length, expectedElementsCount)
-        deepStrictEqual(res1, res2)
+        deepStrictEqual(res1.map(e => e.hash), res2.map(e => e.hash))
       })
 
       it('multiple joins are commutative', async () => {
+        const storage = LRUStorage(MemoryStorage())
+
         // b + a == a + b
-        log1 = new Log(ipfs, testIdentity, { logId: 'X' })
-        log2 = new Log(ipfs, testIdentity2, { logId: 'X' })
+        log1 = Log(testIdentity, { logId, storage })
+        log2 = Log(testIdentity2, { logId, storage })
         await log1.append('helloA1')
         await log1.append('helloA2')
         await log2.append('helloB1')
         await log2.append('helloB2')
         await log2.join(log1)
-        const resA1 = log2.toString()
+        const resA1 = await log2.values()
 
-        log1 = new Log(ipfs, testIdentity, { logId: 'X' })
-        log2 = new Log(ipfs, testIdentity2, { logId: 'X' })
+        log1 = Log(testIdentity, { logId, storage })
+        log2 = Log(testIdentity2, { logId, storage })
         await log1.append('helloA1')
         await log1.append('helloA2')
         await log2.append('helloB1')
         await log2.append('helloB2')
         await log1.join(log2)
-        const resA2 = log1.toString()
+        const resA2 = await log1.values()
 
-        strictEqual(resA1, resA2)
+        deepStrictEqual(resA1.map(e => e.hash), resA2.map(e => e.hash))
 
         // a + b == b + a
-        log1 = new Log(ipfs, testIdentity, { logId: 'X' })
-        log2 = new Log(ipfs, testIdentity2, { logId: 'X' })
+        log1 = Log(testIdentity, { logId, storage })
+        log2 = Log(testIdentity2, { logId, storage })
         await log1.append('helloA1')
         await log1.append('helloA2')
         await log2.append('helloB1')
         await log2.append('helloB2')
         await log1.join(log2)
-        const resB1 = log1.toString()
+        const resB1 = await log1.values()
 
-        log1 = new Log(ipfs, testIdentity, { logId: 'X' })
-        log2 = new Log(ipfs, testIdentity2, { logId: 'X' })
+        log1 = Log(testIdentity, { logId, storage })
+        log2 = Log(testIdentity2, { logId, storage })
         await log1.append('helloA1')
         await log1.append('helloA2')
         await log2.append('helloB1')
         await log2.append('helloB2')
         await log2.join(log1)
-        const resB2 = log2.toString()
+        const resB2 = await log2.values()
 
-        strictEqual(resB1, resB2)
+        deepStrictEqual(resB1.map(e => e.hash), resB2.map(e => e.hash))
 
         // a + c == c + a
-        log1 = new Log(ipfs, testIdentity, { logId: 'A' })
-        log3 = new Log(ipfs, testIdentity3, { logId: 'A' })
+        log1 = Log(testIdentity, { logId, storage })
+        log3 = Log(testIdentity3, { logId, storage })
         await log1.append('helloA1')
         await log1.append('helloA2')
         await log3.append('helloC1')
         await log3.append('helloC2')
         await log3.join(log1)
-        const resC1 = log3.toString()
+        const resC1 = await log3.values()
 
-        log1 = new Log(ipfs, testIdentity, { logId: 'X' })
-        log3 = new Log(ipfs, testIdentity3, { logId: 'X' })
+        log1 = Log(testIdentity, { logId, storage })
+        log3 = Log(testIdentity3, { logId, storage })
         await log1.append('helloA1')
         await log1.append('helloA2')
         await log3.append('helloC1')
         await log3.append('helloC2')
         await log1.join(log3)
-        const resC2 = log1.toString()
+        const resC2 = await log1.values()
 
-        strictEqual(resC1, resC2)
+        deepStrictEqual(resC1.map(e => e.hash), resC2.map(e => e.hash))
 
         // c + b == b + c
-        log2 = new Log(ipfs, testIdentity2, { logId: 'X' })
-        log3 = new Log(ipfs, testIdentity3, { logId: 'X' })
+        log2 = Log(testIdentity2, { logId, storage })
+        log3 = Log(testIdentity3, { logId, storage })
 
         await log2.append('helloB1')
         await log2.append('helloB2')
         await log3.append('helloC1')
         await log3.append('helloC2')
         await log3.join(log2)
-        const resD1 = log3.toString()
+        const resD1 = await log3.values()
 
-        log2 = new Log(ipfs, testIdentity2, { logId: 'X' })
-        log3 = new Log(ipfs, testIdentity3, { logId: 'X' })
+        log2 = Log(testIdentity2, { logId, storage })
+        log3 = Log(testIdentity3, { logId, storage })
         await log2.append('helloB1')
         await log2.append('helloB2')
         await log3.append('helloC1')
         await log3.append('helloC2')
         await log2.join(log3)
-        const resD2 = log2.toString()
+        const resD2 = await log2.values()
 
-        strictEqual(resD1, resD2)
+        deepStrictEqual(resD1.map(e => e.hash), resD2.map(e => e.hash))
 
         // a + b + c == c + b + a
-        log1 = new Log(ipfs, testIdentity, { logId: 'X' })
-        log2 = new Log(ipfs, testIdentity2, { logId: 'X' })
-        log3 = new Log(ipfs, testIdentity3, { logId: 'X' })
+        log1 = Log(testIdentity, { logId, storage })
+        log2 = Log(testIdentity2, { logId, storage })
+        log3 = Log(testIdentity3, { logId, storage })
         await log1.append('helloA1')
         await log1.append('helloA2')
         await log2.append('helloB1')
@@ -220,11 +225,11 @@ Object.keys(testAPIs).forEach((IPFS) => {
         await log3.append('helloC2')
         await log1.join(log2)
         await log1.join(log3)
-        const logLeft = log1.toString()
+        const logLeft = await log1.values()
 
-        log1 = new Log(ipfs, testIdentity, { logId: 'X' })
-        log2 = new Log(ipfs, testIdentity2, { logId: 'X' })
-        log3 = new Log(ipfs, testIdentity3, { logId: 'X' })
+        log1 = Log(testIdentity, { logId, storage })
+        log2 = Log(testIdentity2, { logId, storage })
+        log3 = Log(testIdentity3, { logId, storage })
         await log1.append('helloA1')
         await log1.append('helloA2')
         await log2.append('helloB1')
@@ -233,22 +238,25 @@ Object.keys(testAPIs).forEach((IPFS) => {
         await log3.append('helloC2')
         await log3.join(log2)
         await log3.join(log1)
-        const logRight = log3.toString()
+        const logRight = await log3.values()
 
-        strictEqual(logLeft, logRight)
+        deepStrictEqual(logLeft.map(e => e.hash), logRight.map(e => e.hash))
       })
 
       it('join is idempotent', async () => {
+        const storage = IPFSBlockStorage(MemoryStorage(LRUStorage()), { ipfs })
         const expectedElementsCount = 3
 
-        const logA = new Log(ipfs, testIdentity, { logId: 'X' })
+        const logA = Log(testIdentity, { logId, storage })
         await logA.append('helloA1')
         await logA.append('helloA2')
         await logA.append('helloA3')
 
         // idempotence: a + a = a
         await logA.join(logA)
-        strictEqual(logA.length, expectedElementsCount)
+        const values = await logA.values()
+
+        strictEqual(values.length, expectedElementsCount)
       })
     })
   })

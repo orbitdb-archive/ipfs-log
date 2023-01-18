@@ -12,8 +12,8 @@ export default (env, argv) => {
       library: 'Log',
       filename: 'ipfslog.min.js'
     },
-    mode: 'development',
     target: 'web',
+    mode: 'production',
     plugins: [
     ],
     resolve: {

@@ -1,378 +1,136 @@
-import pMap from 'p-map'
-import GSet from './g-set.js'
-import Entry, { IPLD_LINKS, getWriteFormat } from './entry.js'
-import LogIO from './log-io.js'
-import { IPFSNotDefinedError, LtOrLteMustBeStringOrArray, LogNotDefinedError, NotALogError } from './log-errors.js'
+import Entry from './entry.js'
 import Clock from './lamport-clock.js'
 import Sorting from './log-sorting.js'
 import AccessController from './default-access-controller.js'
-import { isDefined, findUniques } from './utils/index.js'
-import EntryIndex from './entry-index.js'
+import { isDefined } from './utils/index.js'
+import LRU from 'lru'
+import IPFSBlockStorage from './ipfs-block-storage.js'
+import MemoryStorage from './memory-storage.js'
+import LRUStorage from './lru-storage.js'
+import LevelStorage from './level-storage.js'
 
 const { LastWriteWins, NoZeroes } = Sorting
 
 const randomId = () => new Date().getTime().toString()
-const getHash = e => e.hash
-const flatMap = (res, acc) => res.concat(acc)
-const getNextPointers = entry => entry.next
 const maxClockTimeReducer = (res, acc) => Math.max(res, acc.clock.time)
-const uniqueEntriesReducer = (res, acc) => {
-  res[acc.hash] = acc
-  return res
-}
+
+// Default storage for storing the Log. Default: In Memory. Options: Memory, LRU, IPFS,
+const defaultStorage = MemoryStorage()
+// const defaultStorage =  LevelStorage()
+// const defaultStorage = IPFSBlockStorage(null, { ipfs, timeout, pin: true })
+// const defaultStorage = MemoryStorage(IPFSBlockStorage(null, { ipfs, timeout, pin: true }))
+// const defaultStorage = LRUStorage()
 
 /**
  * @description
- * Log implements a G-Set CRDT and adds ordering.
+ * Log is a verifiable, append-only log CRDT.
  *
- * From:
- * "A comprehensive study of Convergent and Commutative Replicated Data Types"
- * https://hal.inria.fr/inria-00555588
+ * Implemented as a Merkle-CRDT as per the paper:
+ * "Merkle-CRDTs: Merkle-DAGs meet CRDTs"
+ * https://arxiv.org/abs/2004.00107
  */
-class Log extends GSet {
-  /**
-   * Create a new Log instance
-   * @param {IPFS} ipfs An IPFS instance
-   * @param {Object} identity Identity (https://github.com/orbitdb/orbit-db-identity-provider/blob/master/src/identity.js)
-   * @param {Object} options
-   * @param {string} options.logId ID of the log
-   * @param {Object} options.access AccessController (./default-access-controller)
-   * @param {Array<Entry>} options.entries An Array of Entries from which to create the log
-   * @param {Array<Entry>} options.heads Set the heads of the log
-   * @param {Clock} options.clock Set the clock of the log
-   * @param {Function} options.sortFn The sort function - by default LastWriteWins
-   * @return {Log} The log instance
-   */
-  constructor (ipfs, identity, { logId, access, entries, heads, clock, sortFn, concurrency } = {}) {
-    if (!isDefined(ipfs)) {
-      throw IPFSNotDefinedError()
-    }
 
-    if (!isDefined(identity)) {
-      throw new Error('Identity is required')
-    }
-
-    if (!isDefined(access)) {
-      access = new AccessController()
-    }
-
-    if (isDefined(entries) && !Array.isArray(entries)) {
-      throw new Error('\'entries\' argument must be an array of Entry instances')
-    }
-
-    if (isDefined(heads) && !Array.isArray(heads)) {
-      throw new Error('\'heads\' argument must be an array')
-    }
-
-    if (!isDefined(sortFn)) {
-      sortFn = LastWriteWins
-    }
-
-    super()
-
-    this._sortFn = NoZeroes(sortFn)
-
-    this._storage = ipfs
-    this._id = logId || randomId()
-
-    // Access Controller
-    this._access = access
-    // Identity
-    this._identity = identity
-
-    // Add entries to the internal cache
-    const uniqueEntries = (entries || []).reduce(uniqueEntriesReducer, {})
-    this._entryIndex = new EntryIndex(uniqueEntries)
-    entries = Object.values(uniqueEntries) || []
-
-    // Set heads if not passed as an argument
-    heads = heads || Log.findHeads(entries)
-    this._headsIndex = heads.reduce(uniqueEntriesReducer, {})
-
-    // Index of all next pointers in this log
-    this._nextsIndex = {}
-    const addToNextsIndex = e => e.next.forEach(a => (this._nextsIndex[a] = e.hash))
-    entries.forEach(addToNextsIndex)
-
-    // Set the length, we calculate the length manually internally
-    this._length = entries.length
-
-    // Set the clock
-    const maxTime = Math.max(clock ? clock.time : 0, this.heads.reduce(maxClockTimeReducer, 0))
-    // Take the given key as the clock id is it's a Key instance,
-    // otherwise if key was given, take whatever it is,
-    // and if it was null, take the given id as the clock id
-    this._clock = new Clock(this._identity.publicKey, maxTime)
-
-    this.joinConcurrency = concurrency || 16
+/**
+ * Create a new Log instance
+ * @param {IPFS} ipfs An IPFS instance
+ * @param {Object} identity Identity (https://github.com/orbitdb/orbit-db-identity-provider/blob/master/src/identity.js)
+ * @param {Object} options
+ * @param {string} options.logId ID of the log
+ * @param {Object} options.access AccessController (./default-access-controller)
+ * @param {Array<Entry>} options.entries An Array of Entries from which to create the log
+ * @param {Array<Entry>} options.heads Set the heads of the log
+ * @param {Clock} options.clock Set the clock of the log
+ * @param {Function} options.sortFn The sort function - by default LastWriteWins
+ * @return {Log} The log instance
+ */
+const Log = (identity, { logId, logHeads, access, storage, sortFn } = {}) => {
+  if (!isDefined(identity)) {
+    throw new Error('Identity is required')
   }
+  if (isDefined(logHeads) && !Array.isArray(logHeads)) {
+    throw new Error('\'logHeads\' argument must be an array')
+  }
+  // Set Log's id
+  const id = logId || randomId()
+  // Set heads
+  // TODO: need to be a LevelStorage()
+  logHeads = Array.from(new Set(logHeads || []))
+  // Access Controller
+  access = access || new AccessController()
+  // Oplog entry storage
+  storage = storage || defaultStorage
+  // Conflict-resolution sorting function
+  sortFn = NoZeroes(sortFn || LastWriteWins)
 
   /**
-   * Returns the ID of the log.
-   * @returns {string}
+   * Returns an array of entries
+   * @returns {Array<Entry>}
    */
-  get id () {
-    return this._id
+  const heads = () => {
+    return logHeads.slice().sort(sortFn).reverse()
   }
 
   /**
    * Returns the clock of the log.
-   * @returns {string}
+   * @returns {LamportClock}
    */
-  get clock () {
-    return this._clock
-  }
-
-  /**
-   * Returns the length of the log.
-   * @return {number} Length
-   */
-  get length () {
-    return this._length
+  const clock = () => {
+    // Find the latest clock from the heads
+    const maxTime = Math.max(0, heads().reduce(maxClockTimeReducer, 0))
+    return new Clock(identity.publicKey, maxTime)
   }
 
   /**
    * Returns the values in the log.
-   * @returns {Array<Entry>}
+   * @returns {Promise<Array<Entry>>}
    */
-  get values () {
-    return Object.values(this.traverse(this.heads)).reverse()
-  }
-
-  /**
-   * Returns an array of heads as hashes.
-   * @returns {Array<string>}
-   */
-  get heads () {
-    return Object.values(this._headsIndex).sort(this._sortFn).reverse()
-  }
-
-  /**
-   * Returns an array of Entry objects that reference entries which
-   * are not in the log currently.
-   * @returns {Array<Entry>}
-   */
-  get tails () {
-    return Log.findTails(this.values)
-  }
-
-  /**
-   * Returns an array of hashes that are referenced by entries which
-   * are not in the log currently.
-   * @returns {Array<string>} Array of hashes
-   */
-  get tailHashes () {
-    return Log.findTailHashes(this.values)
-  }
-
-  /**
-   * Set the identity for the log
-   * @param {Identity} [identity] The identity to be set
-   */
-  setIdentity (identity) {
-    this._identity = identity
-    // Find the latest clock from the heads
-    const time = Math.max(this.clock.time, this.heads.reduce(maxClockTimeReducer, 0))
-    this._clock = new Clock(this._identity.publicKey, time)
-  }
-
-  /**
-   * Find an entry.
-   * @param {string} [hash] The hashes of the entry
-   * @returns {Entry|undefined}
-   */
-  get (hash) {
-    return this._entryIndex.get(hash)
-  }
-
-  /**
-   * Checks if a entry is part of the log
-   * @param {string} hash The hash of the entry
-   * @returns {boolean}
-   */
-  has (entry) {
-    return this._entryIndex.get(entry.hash || entry) !== undefined
-  }
-
-  traverse (rootEntries, amount = -1, endHash) {
-    // Sort the given given root entries and use as the starting stack
-    let stack = rootEntries.sort(this._sortFn).reverse()
-
-    // Cache for checking if we've processed an entry already
-    let traversed = {}
-    // End result
-    const result = {}
-    let count = 0
-    // Named function for getting an entry from the log
-    const getEntry = e => this.get(e)
-
-    // Add an entry to the stack and traversed nodes index
-    const addToStack = entry => {
-      // If we've already processed the entry, don't add it to the stack
-      if (!entry || traversed[entry.hash]) {
-        return
-      }
-
-      // Add the entry in front of the stack and sort
-      stack = [entry, ...stack]
-        .sort(this._sortFn)
-        .reverse()
-      // Add to the cache of processed entries
-      traversed[entry.hash] = true
+  const values = async () => {
+    const values = []
+    for await (const entry of traverse()) {
+      values.unshift(entry)
     }
-
-    const addEntry = rootEntry => {
-      result[rootEntry.hash] = rootEntry
-      traversed[rootEntry.hash] = true
-      count++
-    }
-
-    // Start traversal
-    // Process stack until it's empty (traversed the full log)
-    // or when we have the requested amount of entries
-    // If requested entry amount is -1, traverse all
-    while (stack.length > 0 && (count < amount || amount < 0)) { // eslint-disable-line no-unmodified-loop-condition
-      // Get the next element from the stack
-      const entry = stack.shift()
-      // Add to the result
-      addEntry(entry)
-      // If it is the specified end hash, break out of the while loop
-      if (endHash && endHash === entry.hash) break
-
-      // Add entry's next references to the stack
-      const entries = entry.next.map(getEntry)
-      const defined = entries.filter(isDefined)
-      defined.forEach(addToStack)
-    }
-
-    stack = []
-    traversed = {}
-    // End result
-    return result
+    return values
   }
 
   /**
-   * Append an entry to the log.
-   * @param {Entry} entry Entry to add
-   * @return {Log} New Log containing the appended value
+   * Retrieve an entry.
+   * @param {string} [hash] The hash of the entry to retrieve
+   * @returns {Promise<Entry|undefined>}
    */
-  async append (data, pointerCount = 1, pin = false) {
-    // Update the clock (find the latest clock)
-    const newTime = Math.max(this.clock.time, this.heads.reduce(maxClockTimeReducer, 0)) + 1
-    this._clock = new Clock(this.clock.id, newTime)
+  const get = async (hash) => {
+    return storage.get(hash).then(Entry.decode)
+  }
 
-    const all = Object.values(this.traverse(this.heads, Math.max(pointerCount, this.heads.length)))
-
-    // If pointer count is 4, returns 2
-    // If pointer count is 8, returns 3 references
-    // If pointer count is 512, returns 9 references
-    // If pointer count is 2048, returns 11 references
-    const getEveryPow2 = (maxDistance) => {
-      const entries = new Set()
-      for (let i = 1; i <= maxDistance; i *= 2) {
-        const index = Math.min(i - 1, all.length - 1)
-        entries.add(all[index])
-      }
-      return entries
-    }
-    const references = getEveryPow2(Math.min(pointerCount, all.length))
-
-    // Always include the last known reference
-    if (all.length < pointerCount && all[all.length - 1]) {
-      references.add(all[all.length - 1])
-    }
-
+  /**
+   * Append an new entry to the log.
+   * @param {data} data Payload to add to the entry
+   * @return {Promise<Entry>} Entry that was appended
+   */
+  const append = async (data, options = { pointerCount: 1 }) => {
+    // Get references (entry at every pow2 of distance)
+    const refs = await getReferences(options.pointerCount)
     // Create the next pointers from heads
-    const nexts = Object.keys(this.heads.reverse().reduce(uniqueEntriesReducer, {}))
-    const isNext = e => !nexts.includes(e)
-    // Delete the heads from the refs
-    const refs = Array.from(references).map(getHash).filter(isNext)
-    // @TODO: Split Entry.create into creating object, checking permission, signing and then posting to IPFS
-    // Create the entry and add it to the internal cache
+    const nexts = heads().map(entry => entry.hash)
+    // Create the entry
     const entry = await Entry.create(
-      this._storage,
-      this._identity,
-      this.id,
+      identity,
+      id,
       data,
+      clock().tick(),
       nexts,
-      this.clock,
-      refs,
-      pin
+      refs
     )
-
-    const canAppend = await this._access.canAppend(entry, this._identity.provider)
+    // Authorize the entry
+    const canAppend = await access.canAppend(entry, identity.provider)
     if (!canAppend) {
-      throw new Error(`Could not append entry, key "${this._identity.id}" is not allowed to write to the log`)
+      throw new Error(`Could not append entry:\nKey "${identity.id}" is not allowed to write to the log`)
     }
-
-    this._entryIndex.set(entry.hash, entry)
-    nexts.forEach(e => (this._nextsIndex[e] = entry.hash))
-    this._headsIndex = {}
-    this._headsIndex[entry.hash] = entry
-    // Update the length
-    this._length++
+    // The appended entry is now the latest head
+    logHeads = [entry]
+    // Add entry to the storage
+    await storage.add(entry.hash, entry.bytes)
+    // Return the appended entry
     return entry
-  }
-
-  /*
-   * Creates a javscript iterator over log entries
-   *
-   * @param {Object} options
-   * @param {string|Array} options.gt Beginning hash of the iterator, non-inclusive
-   * @param {string|Array} options.gte Beginning hash of the iterator, inclusive
-   * @param {string|Array} options.lt Ending hash of the iterator, non-inclusive
-   * @param {string|Array} options.lte Ending hash of the iterator, inclusive
-   * @param {amount} options.amount Number of entried to return to / from the gte / lte hash
-   * @returns {Symbol.Iterator} Iterator object containing log entries
-   *
-   * @examples
-   *
-   * (async () => {
-   *   log1 = new Log(ipfs, testIdentity, { logId: 'X' })
-   *
-   *   for (let i = 0; i <= 100; i++) {
-   *     await log1.append('entry' + i)
-   *   }
-   *
-   *   let it = log1.iterator({
-   *     lte: 'zdpuApFd5XAPkCTmSx7qWQmQzvtdJPtx2K5p9to6ytCS79bfk',
-   *     amount: 10
-   *   })
-   *
-   *   [...it].length // 10
-   * })()
-   *
-   *
-   */
-  iterator ({ gt = undefined, gte = undefined, lt = undefined, lte = undefined, amount = -1 } =
-  {}) {
-    if (amount === 0) return (function * () {})()
-    if (typeof lte === 'string') lte = [this.get(lte)]
-    if (typeof lt === 'string') lt = [this.get(this.get(lt).next[0])]
-
-    if (lte && !Array.isArray(lte)) throw LtOrLteMustBeStringOrArray()
-    if (lt && !Array.isArray(lt)) throw LtOrLteMustBeStringOrArray()
-
-    const start = (lte || (lt || this.heads)).filter(isDefined)
-    const endHash = gte ? this.get(gte).hash : gt ? this.get(gt).hash : null
-    const count = endHash ? -1 : amount || -1
-
-    const entries = this.traverse(start, count, endHash)
-    let entryValues = Object.values(entries)
-
-    // Strip off last entry if gt is non-inclusive
-    if (gt) entryValues.pop()
-
-    // Deal with the amount argument working backwards from gt/gte
-    if ((gt || gte) && amount > -1) {
-      entryValues = entryValues.slice(entryValues.length - amount, entryValues.length)
-    }
-
-    return (function * () {
-      for (const i in entryValues) {
-        yield entryValues[i]
-      }
-    })()
   }
 
   /**
@@ -381,239 +139,204 @@ class Log extends GSet {
    * Joins another log into this one.
    *
    * @param {Log} log Log to join with this Log
-   * @param {number} [size=-1] Max size of the joined log
    * @returns {Promise<Log>} This Log instance
    * @example
    * await log1.join(log2)
    */
-  async join (log, size = -1) {
-    if (!isDefined(log)) throw LogNotDefinedError()
-    if (!Log.isLog(log)) throw NotALogError()
-    if (this.id !== log.id) return
+  const join = async (log) => {
+    if (!log) {
+      throw new Error('Log instance not defined')
+    }
+    if (!isLog(log)) {
+      throw new Error('Given argument is not an instance of Log')
+    }
+    for (const entry of log.heads()) {
+      await joinEntry(entry)
+    }
+    await storage.merge(log.storage)
+  }
 
-    // Get the difference of the logs
-    const newItems = Log.difference(log, this)
+  /**
+   * Join an entry into a log.
+   *
+   * @param {Entry} entry Entry to join with this Log
+   * @returns {Promise<Log>} This Log instance
+   * @example
+   * await log.join(entry)
+   */
+  const joinEntry = async (entry) => {
+    const identityProvider = identity.provider
+    // Check that the Entry belongs to this Log
+    if (entry.id !== id) {
+      throw new Error(`Entry's id (${entry.id}) doesn't match the log's id (${id}).`)
+    }
+    // Verify if entry is allowed to be added to the log
+    const canAppend = await access.canAppend(entry, identityProvider)
+    if (!canAppend) {
+      throw new Error(`Could not append entry:\nKey "${entry.identity.id}" is not allowed to write to the log`)
+    }
+    // Verify signature for the entry
+    const isValid = await Entry.verify(identityProvider, entry)
+    if (!isValid) {
+      throw new Error(`Could not validate signature for entry "${entry.hash}"`)
+    }
+    // Find the new heads
+    logHeads = findHeads(Array.from(new Set([...heads(), entry])))
+    // Add new entry to storage
+    await storage.add(entry.hash, entry.bytes)
+  }
 
-    const identityProvider = this._identity.provider
-    // Verify if entries are allowed to be added to the log and throws if
-    // there's an invalid entry
-    const permitted = async (entry) => {
-      const canAppend = await this._access.canAppend(entry, identityProvider)
-      if (!canAppend) {
-        throw new Error(`Could not append entry, key "${entry.identity.id}" is not allowed to write to the log`)
+  /**
+   * TODO
+   */
+  const traverse = async function * (rootEntries, shouldStopFn) {
+    // By default, we don't stop traversal and traverse
+    // until the end of the log
+    const defaultStopFn = () => false
+    shouldStopFn = shouldStopFn || defaultStopFn
+    // Start traversal from given entries or from current heads
+    rootEntries = rootEntries || heads()
+    // Sort the given given root entries and use as the starting stack
+    let stack = rootEntries.sort(sortFn)
+    // Keep a record of all the hashes of entries we've traversed and yielded
+    const traversed = {}
+    // Current entry during traversal
+    let entry
+    // Start traversal
+    while (stack.length > 0) {
+      // Process stack until it's empty (traversed the full log)
+      // or until shouldStopFn returns true
+      const done = await shouldStopFn(entry)
+      if (done === true) {
+        break
+      }
+      // Get the next entry from the stack
+      entry = stack.pop()
+      if (entry) {
+        // Yield the current entry
+        yield entry
+        // Add hashes of next entries to the stack from entry's
+        // causal connection (next) and references to history (refs)
+        for (const hash of [...entry.next, ...entry.refs]) {
+          // Check if we've already traversed this entry
+          if (!traversed[hash]) {
+            // Add to the hashes we've traversed
+            traversed[hash] = true
+            // Fetch the next entry
+            const next = await get(hash)
+            if (next) {
+              // Add the next entry in front of the stack and sort
+              stack = [next, ...stack].sort(sortFn)
+            }
+          }
+        }
+      }
+    }
+  }
+
+  /*
+   * Async iterator over the log entries
+   *
+   * @param {Object} options
+   * @param {amount} options.amount Number of entried to return
+   * @param {string|Array} options.gt Beginning hash of the iterator, non-inclusive
+   * @param {string|Array} options.gte Beginning hash of the iterator, inclusive
+   * @param {string|Array} options.lt Ending hash of the iterator, non-inclusive
+   * @param {string|Array} options.lte Ending hash of the iterator, inclusive
+   * @returns {Symbol.asyncIterator} Iterator object of log entries
+   *
+   * @examples
+   *
+   * (async () => {
+   *   log = Log(testIdentity, { logId: 'X' })
+   *
+   *   for (let i = 0; i <= 100; i++) {
+   *     await log.append('entry' + i)
+   *   }
+   *
+   *   let it = log.iterator({
+   *     lte: 'zdpuApFd5XAPkCTmSx7qWQmQzvtdJPtx2K5p9to6ytCS79bfk',
+   *     amount: 10
+   *   })
+   *
+   *   for await (let entry of it) {
+   *     console.log(entry.payload) // 'entry100', 'entry99', ..., 'entry91'
+   *   }
+   * })()
+   *
+   *
+   */
+  const iterator = async function * ({ amount = -1, gt, gte, lt, lte }) {
+    // TODO: write comments on how the iterator algorithm works
+
+    if (amount === 0) {
+      return
+    }
+
+    if (typeof lte === 'string') {
+      lte = [await get(lte)]
+    }
+
+    if (typeof lt === 'string') {
+      const entry = await get(lt)
+      const nexts = await Promise.all(entry.next.map(n => get(n)))
+      lt = nexts
+    }
+
+    if (isDefined(lt) && !Array.isArray(lt)) throw new Error('lt must be a string or an array of Entries')
+    if (isDefined(lte) && !Array.isArray(lte)) throw new Error('lte must be a string or an array of Entries')
+
+    const start = (lt || (lte || heads())).filter(isDefined)
+    const end = (gt || gte) ? await get(gt || gte) : null
+
+    const amountToIterate = end || amount === -1
+      ? -1
+      : (lte || lt ? amount - 1 : amount)
+
+    let count = 0
+    const shouldStopTraversal = async (entry) => {
+      if (!entry) {
+        return false
+      }
+      if (count >= amountToIterate && amountToIterate !== -1) {
+        return true
+      }
+      if (end && Entry.isEqual(entry, end)) {
+        return true
+      }
+      count++
+      return false
+    }
+
+    const useBuffer = end && amount !== -1 && !lt && !lte
+    const buffer = useBuffer ? new LRU(amount + 2) : null
+    let index = 0
+
+    const it = traverse(start, shouldStopTraversal)
+
+    for await (const entry of it) {
+      const skipFirst = (lt && Entry.isEqual(entry, start))
+      const skipLast = (gt && Entry.isEqual(entry, end))
+      const skip = skipFirst || skipLast
+      if (!skip) {
+        if (useBuffer) {
+          buffer.set(index++, entry.hash)
+        } else {
+          yield entry
+        }
       }
     }
 
-    // Verify signature for each entry and throws if there's an invalid signature
-    const verify = async (entry) => {
-      const isValid = await Entry.verify(identityProvider, entry)
-      const publicKey = entry.identity ? entry.identity.publicKey : entry.key
-      if (!isValid) throw new Error(`Could not validate signature "${entry.sig}" for entry "${entry.hash}" and key "${publicKey}"`)
+    if (useBuffer) {
+      const endIndex = buffer.keys.length - 1
+      const startIndex = endIndex - amount
+      const keys = buffer.keys.slice(startIndex, endIndex)
+      for (const key of keys) {
+        const hash = buffer.get(key)
+        const entry = await get(hash)
+        yield entry
+      }
     }
-
-    const entriesToJoin = Object.values(newItems)
-    await pMap(entriesToJoin, async e => {
-      await permitted(e)
-      await verify(e)
-    }, { concurrency: this.joinConcurrency })
-
-    // Update the internal next pointers index
-    const addToNextsIndex = e => {
-      const entry = this.get(e.hash)
-      if (!entry) this._length++ /* istanbul ignore else */
-      e.next.forEach(a => (this._nextsIndex[a] = e.hash))
-    }
-    Object.values(newItems).forEach(addToNextsIndex)
-
-    // Update the internal entry index
-    this._entryIndex.add(newItems)
-
-    // Merge the heads
-    const notReferencedByNewItems = e => !nextsFromNewItems.find(a => a === e.hash)
-    const notInCurrentNexts = e => !this._nextsIndex[e.hash]
-    const nextsFromNewItems = Object.values(newItems).map(getNextPointers).reduce(flatMap, [])
-    const mergedHeads = Log.findHeads(Object.values(Object.assign({}, this._headsIndex, log._headsIndex)))
-      .filter(notReferencedByNewItems)
-      .filter(notInCurrentNexts)
-      .reduce(uniqueEntriesReducer, {})
-
-    this._headsIndex = mergedHeads
-
-    // Slice to the requested size
-    if (size > -1) {
-      let tmp = this.values
-      tmp = tmp.slice(-size)
-      this._entryIndex = null
-      this._entryIndex = new EntryIndex(tmp.reduce(uniqueEntriesReducer, {}))
-      this._headsIndex = Log.findHeads(tmp).reduce(uniqueEntriesReducer, {})
-      this._length = this._entryIndex.length
-    }
-
-    // Find the latest clock from the heads
-    const maxClock = Object.values(this._headsIndex).reduce(maxClockTimeReducer, 0)
-    this._clock = new Clock(this.clock.id, Math.max(this.clock.time, maxClock))
-    return this
-  }
-
-  /**
-   * Get the log in JSON format.
-   * @returns {Object} An object with the id and heads properties
-   */
-  toJSON () {
-    return {
-      id: this.id,
-      heads: this.heads
-        .sort(this._sortFn) // default sorting
-        .reverse() // we want the latest as the first element
-        .map(getHash) // return only the head hashes
-    }
-  }
-
-  /**
-   * Get the log in JSON format as a snapshot.
-   * @returns {Object} An object with the id, heads and value properties
-   */
-  toSnapshot () {
-    return {
-      id: this.id,
-      heads: this.heads,
-      values: this.values
-    }
-  }
-
-  /**
-   * Get the log as a Buffer.
-   * @returns {Buffer}
-   */
-  toBuffer () {
-    return Buffer.from(JSON.stringify(this.toJSON()))
-  }
-
-  /**
-   * Returns the log entries as a formatted string.
-   * @returns {string}
-   * @example
-   * two
-   * └─one
-   *   └─three
-   */
-  toString (payloadMapper) {
-    return this.values
-      .slice()
-      .reverse()
-      .map((e, idx) => {
-        const parents = Entry.findChildren(e, this.values)
-        const len = parents.length
-        let padding = new Array(Math.max(len - 1, 0))
-        padding = len > 1 ? padding.fill('  ') : padding
-        padding = len > 0 ? padding.concat(['└─']) : padding
-        /* istanbul ignore next */
-        return padding.join('') + (payloadMapper ? payloadMapper(e.payload) : e.payload)
-      })
-      .join('\n')
-  }
-
-  /**
-   * Check whether an object is a Log instance.
-   * @param {Object} log An object to check
-   * @returns {boolean}
-   */
-  static isLog (log) {
-    return log.id !== undefined &&
-      log.heads !== undefined &&
-      log._entryIndex !== undefined
-  }
-
-  /**
-   * Get the log's multihash.
-   * @returns {Promise<string>} Multihash of the Log as Base58 encoded string.
-   */
-  toMultihash ({ format } = {}) {
-    return LogIO.toMultihash(this._storage, this, { format })
-  }
-
-  /**
-   * Create a log from a hashes.
-   * @param {IPFS} ipfs An IPFS instance
-   * @param {Identity} identity The identity instance
-   * @param {string} hash The log hash
-   * @param {Object} options
-   * @param {AccessController} options.access The access controller instance
-   * @param {number} options.length How many items to include in the log
-   * @param {Array<Entry>} options.exclude Entries to not fetch (cached)
-   * @param {function(hash, entry, parent, depth)} options.onProgressCallback
-   * @param {Function} options.sortFn The sort function - by default LastWriteWins
-   * @returns {Promise<Log>}
-   */
-  static async fromMultihash (ipfs, identity, hash,
-    { access, length = -1, exclude = [], shouldExclude, timeout, concurrency, sortFn, onProgressCallback } = {}) {
-    // TODO: need to verify the entries with 'key'
-    const { logId, entries, heads } = await LogIO.fromMultihash(ipfs, hash,
-      { length, exclude, shouldExclude, timeout, onProgressCallback, concurrency, sortFn })
-    return new Log(ipfs, identity, { logId, access, entries, heads, sortFn })
-  }
-
-  /**
-   * Create a log from a single entry's hash.
-   * @param {IPFS} ipfs An IPFS instance
-   * @param {Identity} identity The identity instance
-   * @param {string} hash The entry's hash
-   * @param {Object} options
-   * @param {string} options.logId The ID of the log
-   * @param {AccessController} options.access The access controller instance
-   * @param {number} options.length How many entries to include in the log
-   * @param {Array<Entry>} options.exclude Entries to not fetch (cached)
-   * @param {function(hash, entry, parent, depth)} options.onProgressCallback
-   * @param {Function} options.sortFn The sort function - by default LastWriteWins
-   * @return {Promise<Log>} New Log
-   */
-  static async fromEntryHash (ipfs, identity, hash,
-    { logId, access, length = -1, exclude = [], shouldExclude, timeout, concurrency, sortFn, onProgressCallback } = {}) {
-    // TODO: need to verify the entries with 'key'
-    const { entries } = await LogIO.fromEntryHash(ipfs, hash,
-      { length, exclude, shouldExclude, timeout, concurrency, onProgressCallback })
-    return new Log(ipfs, identity, { logId, access, entries, sortFn })
-  }
-
-  /**
-   * Create a log from a Log Snapshot JSON.
-   * @param {IPFS} ipfs An IPFS instance
-   * @param {Identity} identity The identity instance
-   * @param {Object} json Log snapshot as JSON object
-   * @param {Object} options
-   * @param {AccessController} options.access The access controller instance
-   * @param {number} options.length How many entries to include in the log
-   * @param {function(hash, entry, parent, depth)} [options.onProgressCallback]
-   * @param {Function} options.sortFn The sort function - by default LastWriteWins
-   * @return {Promise<Log>} New Log
-   */
-  static async fromJSON (ipfs, identity, json,
-    { access, length = -1, timeout, sortFn, onProgressCallback } = {}) {
-    // TODO: need to verify the entries with 'key'
-    const { logId, entries } = await LogIO.fromJSON(ipfs, json,
-      { length, timeout, onProgressCallback })
-    return new Log(ipfs, identity, { logId, access, entries, sortFn })
-  }
-
-  /**
-   * Create a new log from an Entry instance.
-   * @param {IPFS} ipfs An IPFS instance
-   * @param {Identity} identity The identity instance
-   * @param {Entry|Array<Entry>} sourceEntries An Entry or an array of entries to fetch a log from
-   * @param {Object} options
-   * @param {AccessController} options.access The access controller instance
-   * @param {number} options.length How many entries to include. Default: infinite.
-   * @param {Array<Entry>} options.exclude Entries to not fetch (cached)
-   * @param {function(hash, entry, parent, depth)} [options.onProgressCallback]
-   * @param {Function} options.sortFn The sort function - by default LastWriteWins
-   * @return {Promise<Log>} New Log
-   */
-  static async fromEntry (ipfs, identity, sourceEntries,
-    { access, length = -1, exclude = [], timeout, concurrency, sortFn, onProgressCallback } = {}) {
-    // TODO: need to verify the entries with 'key'
-    const { logId, entries } = await LogIO.fromEntry(ipfs, sourceEntries,
-      { length, exclude, timeout, concurrency, onProgressCallback })
-    return new Log(ipfs, identity, { logId, access, entries, sortFn })
   }
 
   /**
@@ -625,114 +348,83 @@ class Log extends GSet {
    * @param {Array<Entry>} entries Entries to search heads from
    * @returns {Array<Entry>}
    */
-  static findHeads (entries) {
-    const indexReducer = (res, entry, idx, arr) => {
-      const addToResult = e => (res[e] = entry.hash)
-      entry.next.forEach(addToResult)
-      return res
-    }
-
-    const items = entries.reduce(indexReducer, {})
-
-    const exists = e => items[e.hash] === undefined
-    const compareIds = (a, b) => a.clock.id > b.clock.id
-
-    return entries.filter(exists).sort(compareIds)
-  }
-
-  // Find entries that point to another entry that is not in the
-  // input array
-  static findTails (entries) {
-    // Reverse index { next -> entry }
-    const reverseIndex = {}
-    // Null index containing entries that have no parents (nexts)
-    const nullIndex = []
-    // Hashes for all entries for quick lookups
-    const hashes = {}
-    // Hashes of all next entries
-    let nexts = []
-
-    const addToIndex = (e) => {
-      if (e.next.length === 0) {
-        nullIndex.push(e)
-      }
-      const addToReverseIndex = (a) => {
-        /* istanbul ignore else */
-        if (!reverseIndex[a]) reverseIndex[a] = []
-        reverseIndex[a].push(e)
-      }
-
-      // Add all entries and their parents to the reverse index
-      e.next.forEach(addToReverseIndex)
-      // Get all next references
-      nexts = nexts.concat(e.next)
-      // Get the hashes of input entries
-      hashes[e.hash] = true
-    }
-
-    // Create our indices
-    entries.forEach(addToIndex)
-
-    const addUniques = (res, entries, idx, arr) => res.concat(findUniques(entries, 'hash'))
-    const exists = e => hashes[e] === undefined
-    const findFromReverseIndex = e => reverseIndex[e]
-
-    // Drop hashes that are not in the input entries
-    const tails = nexts // For every hash in nexts:
-      .filter(exists) // Remove undefineds and nulls
-      .map(findFromReverseIndex) // Get the Entry from the reverse index
-      .reduce(addUniques, []) // Flatten the result and take only uniques
-      .concat(nullIndex) // Combine with tails the have no next refs (ie. first-in-their-chain)
-
-    return findUniques(tails, 'hash').sort(Entry.compare)
-  }
-
-  // Find the hashes to entries that are not in a collection
-  // but referenced by other entries
-  static findTailHashes (entries) {
-    const hashes = {}
-    const addToIndex = e => (hashes[e.hash] = true)
-    const reduceTailHashes = (res, entry, idx, arr) => {
-      const addToResult = (e) => {
-        /* istanbul ignore else */
-        if (hashes[e] === undefined) {
-          res.splice(0, 0, e)
-        }
-      }
-      entry.next.reverse().forEach(addToResult)
-      return res
-    }
-
-    entries.forEach(addToIndex)
-    return entries.reduce(reduceTailHashes, [])
-  }
-
-  static difference (a, b) {
-    const stack = Object.keys(a._headsIndex)
-    const traversed = {}
-    const res = {}
-
-    const pushToStack = hash => {
-      if (!traversed[hash] && !b.get(hash)) {
-        stack.push(hash)
-        traversed[hash] = true
+  const findHeads = (entries) => {
+    const items = {}
+    for (const entry of entries) {
+      for (const next of entry.next) {
+        items[next] = entry.hash
       }
     }
 
-    while (stack.length > 0) {
-      const hash = stack.shift()
-      const entry = a.get(hash)
-      if (entry && !b.get(hash) && entry.id === b.id) {
-        res[entry.hash] = entry
-        traversed[entry.hash] = true
-        entry.next.concat(entry.refs).forEach(pushToStack)
+    const res = []
+    for (const entry of entries) {
+      if (!items[entry.hash]) {
+        res.push(entry)
       }
     }
+
     return res
+  }
+
+  /**
+   * TODO
+   * Get references at every pow2 distance
+   * If pointer count is 4, returns 2
+   * If pointer count is 8, returns 3 references
+   * If pointer count is 512, returns 9 references
+   * If pointer count is 2048, returns 11 references
+   */
+  const getReferences = async (pointerCount = 1) => {
+    let nextPointerDistance = 2
+    let distance = 0
+    const refs = []
+    const shouldStopFn = () => distance >= pointerCount
+    for await (const entry of traverse(null, shouldStopFn)) {
+      distance++
+      if (distance === nextPointerDistance) {
+        if (entry.hash) {
+          refs.push(entry.hash)
+        }
+        nextPointerDistance *= 2
+      }
+    }
+    return refs
+  }
+
+  /**
+   * Check if an object is a Log.
+   * @param {Log} obj
+   * @returns {boolean}
+   */
+  const isLog = (obj) => {
+    return obj && obj.id !== undefined &&
+      obj.clock !== undefined &&
+      obj.heads !== undefined &&
+      obj.values !== undefined &&
+      obj.access !== undefined &&
+      obj.identity !== undefined &&
+      obj.storage !== undefined
+  }
+
+  return {
+    id,
+    clock,
+    heads,
+    values,
+    access,
+    identity,
+    storage,
+    get,
+    append,
+    join,
+    joinEntry,
+    traverse,
+    iterator
   }
 }
 
-export default Log
+export { Log }
 export { Sorting }
-export { Entry, IPLD_LINKS, getWriteFormat }
+export { Entry }
 export { AccessController }
+export { IPFSBlockStorage, MemoryStorage, LRUStorage, LevelStorage }

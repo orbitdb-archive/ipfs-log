@@ -1,10 +1,10 @@
 class LogCreator {
   static async createLogWithSixteenEntries (Log, ipfs, identities) {
     const create = async () => {
-      const logA = new Log(ipfs, identities[0], { logId: 'X' })
-      const logB = new Log(ipfs, identities[1], { logId: 'X' })
-      const log3 = new Log(ipfs, identities[2], { logId: 'X' })
-      const log = new Log(ipfs, identities[3], { logId: 'X' })
+      const logA = Log(identities[0], { logId: 'X' })
+      const logB = Log(identities[1], { logId: 'X' })
+      const log3 = Log(identities[2], { logId: 'X' })
+      const log = Log(identities[3], { logId: 'X' })
 
       for (let i = 1; i <= 5; i++) {
         await logA.append('entryA' + i)
@@ -32,7 +32,7 @@ class LogCreator {
     ]
 
     const log = await create()
-    return { log, expectedData, json: log.toJSON() }
+    return { log, expectedData, json: (await log.values()).map(e => e.payload) }
   }
 
   static async createLogWithTwoHundredEntries (Log, ipfs, identities) {
@@ -41,8 +41,8 @@ class LogCreator {
     const expectedData = []
 
     const create = async () => {
-      const logA = new Log(ipfs, identities[0], { logId: 'X' })
-      const logB = new Log(ipfs, identities[1], { logId: 'X' })
+      const logA = Log(identities[0], { logId: 'X' })
+      const logB = Log(identities[1], { logId: 'X' })
       for (let i = 1; i <= amount; i++) {
         await logA.append('entryA' + i)
         await logB.join(logA)

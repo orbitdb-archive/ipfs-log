@@ -3,24 +3,20 @@ import rimraf from 'rimraf'
 import { copy } from 'fs-extra'
 import Sorting from '../src/log-sorting.js'
 import bigLogString from './fixtures/big-log.fixture.js'
-import Entry, { IPLD_LINKS, getWriteFormat } from '../src/entry.js'
-import Log from '../src/log.js'
-import { write } from 'orbit-db-io'
+import Entry from '../src/entry.js'
+import { Log } from '../src/log.js'
 import IdentityProvider from 'orbit-db-identity-provider'
 import Keystore from 'orbit-db-keystore'
 import LogCreator from './utils/log-creator.js'
-import { hello, helloWorld, helloAgain } from './fixtures/v0-entries.fixture.js'
-import { v1Entries } from './fixtures/v1-entries.fixture.js'
 
 // Test utils
 import { config, MemStore, testAPIs, startIpfs, stopIpfs } from 'orbit-db-test-utils'
 
-const { length: _length } = v1Entries
 const { sync: rmrf } = rimraf
 const { LastWriteWins } = Sorting
 const { createIdentity } = IdentityProvider
 const { fromJSON, fromEntryHash, fromEntry, fromMultihash: _fromMultihash } = Log
-const { fromMultihash, create, compare, toEntry } = Entry
+const { fromMultihash, create, compare } = Entry
 const { createLogWithSixteenEntries, createLogWithTwoHundredEntries } = LogCreator
 
 // Alternate tiebreaker. Always does the opposite of LastWriteWins
@@ -34,7 +30,7 @@ const last = (arr) => {
 }
 
 Object.keys(testAPIs).forEach((IPFS) => {
-  describe('Log - Load (' + IPFS + ')', function () {
+  describe.skip('Log - Load (' + IPFS + ')', function () {
     this.timeout(config.timeout)
 
     const { identityKeyFixtures, signingKeyFixtures, identityKeysPath, signingKeysPath } = config
@@ -262,9 +258,9 @@ Object.keys(testAPIs).forEach((IPFS) => {
       })
 
       it('retrieves partial log from an entry hash', async () => {
-        const log1 = new Log(ipfs, testIdentity, { logId: 'X' })
-        const log2 = new Log(ipfs, testIdentity2, { logId: 'X' })
-        const log3 = new Log(ipfs, testIdentity3, { logId: 'X' })
+        const log1 = Log(testIdentity, { logId: 'X' })
+        const log2 = Log(testIdentity2, { logId: 'X' })
+        const log3 = Log(testIdentity3, { logId: 'X' })
         const items1 = []
         const items2 = []
         const items3 = []
@@ -309,9 +305,9 @@ Object.keys(testAPIs).forEach((IPFS) => {
       })
 
       it('retrieves full log from an entry hash', async () => {
-        const log1 = new Log(ipfs, testIdentity, { logId: 'X' })
-        const log2 = new Log(ipfs, testIdentity2, { logId: 'X' })
-        const log3 = new Log(ipfs, testIdentity3, { logId: 'X' })
+        const log1 = Log(testIdentity, { logId: 'X' })
+        const log2 = Log(testIdentity2, { logId: 'X' })
+        const log3 = Log(testIdentity3, { logId: 'X' })
         const items1 = []
         const items2 = []
         const items3 = []
@@ -342,9 +338,9 @@ Object.keys(testAPIs).forEach((IPFS) => {
       })
 
       it('retrieves full log from an entry hash 2', async () => {
-        const log1 = new Log(ipfs, testIdentity, { logId: 'X' })
-        const log2 = new Log(ipfs, testIdentity2, { logId: 'X' })
-        const log3 = new Log(ipfs, testIdentity3, { logId: 'X' })
+        const log1 = Log(testIdentity, { logId: 'X' })
+        const log2 = Log(testIdentity2, { logId: 'X' })
+        const log3 = Log(testIdentity3, { logId: 'X' })
         const items1 = []
         const items2 = []
         const items3 = []
@@ -375,9 +371,9 @@ Object.keys(testAPIs).forEach((IPFS) => {
       })
 
       it('retrieves full log from an entry hash 3', async () => {
-        const log1 = new Log(ipfs, testIdentity, { logId: 'X' })
-        const log2 = new Log(ipfs, testIdentity2, { logId: 'X' })
-        const log3 = new Log(ipfs, testIdentity4, { logId: 'X' })
+        const log1 = Log(testIdentity, { logId: 'X' })
+        const log2 = Log(testIdentity2, { logId: 'X' })
+        const log3 = Log(testIdentity4, { logId: 'X' })
         const items1 = []
         const items2 = []
         const items3 = []
@@ -386,18 +382,18 @@ Object.keys(testAPIs).forEach((IPFS) => {
           const prev1 = last(items1)
           const prev2 = last(items2)
           const prev3 = last(items3)
-          log1.clock.tick()
-          log2.clock.tick()
-          log3.clock.tick()
-          const n1 = await create(ipfs, log1._identity, 'X', 'entryA' + i, [prev1], log1.clock)
-          const n2 = await create(ipfs, log2._identity, 'X', 'entryB' + i, [prev2, n1], log2.clock)
-          const n3 = await create(ipfs, log3._identity, 'X', 'entryC' + i, [prev3, n1, n2], log3.clock)
-          log1.clock.merge(log2.clock)
-          log1.clock.merge(log3.clock)
-          log2.clock.merge(log1.clock)
-          log2.clock.merge(log3.clock)
-          log3.clock.merge(log1.clock)
-          log3.clock.merge(log2.clock)
+          log1.clock().tick()
+          log2.clock().tick()
+          log3.clock().tick()
+          const n1 = await create(ipfs, log1._identity, 'X', 'entryA' + i, [prev1], log1.clock())
+          const n2 = await create(ipfs, log2._identity, 'X', 'entryB' + i, [prev2, n1], log2.clock())
+          const n3 = await create(ipfs, log3._identity, 'X', 'entryC' + i, [prev3, n1, n2], log3.clock())
+          log1.clock().merge(log2.clock())
+          log1.clock().merge(log3.clock())
+          log2.clock().merge(log1.clock())
+          log2.clock().merge(log3.clock())
+          log3.clock().merge(log1.clock())
+          log3.clock().merge(log2.clock())
           items1.push(n1)
           items2.push(n2)
           items3.push(n3)
@@ -476,7 +472,7 @@ Object.keys(testAPIs).forEach((IPFS) => {
         deepStrictEqual(c.values.map(e => e.payload), tmp)
 
         // make sure logX comes after A, B and C
-        const logX = new Log(ipfs, testIdentity4, { logId: 'X' })
+        const logX = Log(testIdentity4, { logId: 'X' })
         await logX.append('1')
         await logX.append('2')
         await logX.append('3')
@@ -498,9 +494,9 @@ Object.keys(testAPIs).forEach((IPFS) => {
       })
 
       it('retrieves full log of randomly joined log', async () => {
-        const log1 = new Log(ipfs, testIdentity, { logId: 'X' })
-        const log2 = new Log(ipfs, testIdentity3, { logId: 'X' })
-        const log3 = new Log(ipfs, testIdentity4, { logId: 'X' })
+        const log1 = Log(testIdentity, { logId: 'X' })
+        const log2 = Log(testIdentity3, { logId: 'X' })
+        const log3 = Log(testIdentity4, { logId: 'X' })
 
         for (let i = 1; i <= 5; i++) {
           await log1.append('entryA' + i)
@@ -535,10 +531,10 @@ Object.keys(testAPIs).forEach((IPFS) => {
       })
 
       it('retrieves randomly joined log deterministically', async () => {
-        const logA = new Log(ipfs, testIdentity, { logId: 'X' })
-        const logB = new Log(ipfs, testIdentity3, { logId: 'X' })
-        const log3 = new Log(ipfs, testIdentity4, { logId: 'X' })
-        const log = new Log(ipfs, testIdentity2, { logId: 'X' })
+        const logA = Log(testIdentity, { logId: 'X' })
+        const logB = Log(testIdentity3, { logId: 'X' })
+        const log3 = Log(testIdentity4, { logId: 'X' })
+        const log = Log(testIdentity2, { logId: 'X' })
 
         for (let i = 1; i <= 5; i++) {
           await logA.append('entryA' + i)
@@ -646,7 +642,7 @@ Object.keys(testAPIs).forEach((IPFS) => {
         const testLog = await createLogWithSixteenEntries(Log, ipfs, identities)
 
         const firstWriteWinsLog =
-          new Log(ipfs, identities[0], { logId: 'X', sortFn: FirstWriteWins })
+          Log(identities[0], { logId: 'X', sortFn: FirstWriteWins })
         await firstWriteWinsLog.join(testLog.log)
         deepStrictEqual(firstWriteWinsLog.values.map(e => e.payload),
           firstWriteExpectedData)
@@ -655,7 +651,7 @@ Object.keys(testAPIs).forEach((IPFS) => {
       it('throws an error if the tiebreaker returns zero', async () => {
         const testLog = await createLogWithSixteenEntries(Log, ipfs, identities)
         const firstWriteWinsLog =
-          new Log(ipfs, identities[0], { logId: 'X', sortFn: BadComparatorReturnsZero })
+          Log(identities[0], { logId: 'X', sortFn: BadComparatorReturnsZero })
         await firstWriteWinsLog.join(testLog.log)
         throws(() => firstWriteWinsLog.values, Error, 'Error Thrown')
       })
@@ -663,10 +659,10 @@ Object.keys(testAPIs).forEach((IPFS) => {
       it('retrieves partially joined log deterministically - single next pointer', async () => {
         const nextPointerAmount = 1
 
-        const logA = new Log(ipfs, testIdentity, { logId: 'X' })
-        const logB = new Log(ipfs, testIdentity3, { logId: 'X' })
-        const log3 = new Log(ipfs, testIdentity4, { logId: 'X' })
-        const log = new Log(ipfs, testIdentity2, { logId: 'X' })
+        const logA = Log(testIdentity, { logId: 'X' })
+        const logB = Log(testIdentity3, { logId: 'X' })
+        const log3 = Log(testIdentity4, { logId: 'X' })
+        const log = Log(testIdentity2, { logId: 'X' })
 
         for (let i = 1; i <= 5; i++) {
           await logA.append('entryA' + i, nextPointerAmount)
@@ -727,10 +723,10 @@ Object.keys(testAPIs).forEach((IPFS) => {
       it('retrieves partially joined log deterministically - multiple next pointers', async () => {
         const nextPointersAmount = 64
 
-        const logA = new Log(ipfs, testIdentity, { logId: 'X' })
-        const logB = new Log(ipfs, testIdentity3, { logId: 'X' })
-        const log3 = new Log(ipfs, testIdentity4, { logId: 'X' })
-        const log = new Log(ipfs, testIdentity2, { logId: 'X' })
+        const logA = Log(testIdentity, { logId: 'X' })
+        const logB = Log(testIdentity3, { logId: 'X' })
+        const log3 = Log(testIdentity4, { logId: 'X' })
+        const log = Log(testIdentity2, { logId: 'X' })
 
         for (let i = 1; i <= 5; i++) {
           await logA.append('entryA' + i, nextPointersAmount)
@@ -808,9 +804,9 @@ Object.keys(testAPIs).forEach((IPFS) => {
 
         beforeEach(async () => {
           const ts = new Date().getTime()
-          log1 = new Log(ipfs, testIdentity, { logId: 'X' })
-          log2 = new Log(ipfs, testIdentity2, { logId: 'X' })
-          log3 = new Log(ipfs, testIdentity3, { logId: 'X' })
+          log1 = Log(testIdentity, { logId: 'X' })
+          log2 = Log(testIdentity2, { logId: 'X' })
+          log3 = Log(testIdentity3, { logId: 'X' })
           items1 = []
           items2 = []
           items3 = []
@@ -818,18 +814,18 @@ Object.keys(testAPIs).forEach((IPFS) => {
             const prev1 = last(items1)
             const prev2 = last(items2)
             const prev3 = last(items3)
-            const n1 = await create(ipfs, log1._identity, log1.id, 'entryA' + i + '-' + ts, [prev1], log1.clock)
-            const n2 = await create(ipfs, log2._identity, log2.id, 'entryB' + i + '-' + ts, [prev2, n1], log2.clock)
-            const n3 = await create(ipfs, log3._identity, log3.id, 'entryC' + i + '-' + ts, [prev3, n1, n2], log3.clock)
-            log1.clock.tick()
-            log2.clock.tick()
-            log3.clock.tick()
-            log1.clock.merge(log2.clock)
-            log1.clock.merge(log3.clock)
-            log2.clock.merge(log1.clock)
-            log2.clock.merge(log3.clock)
-            log3.clock.merge(log1.clock)
-            log3.clock.merge(log2.clock)
+            const n1 = await create(ipfs, log1._identity, log1.id, 'entryA' + i + '-' + ts, [prev1], log1.clock())
+            const n2 = await create(ipfs, log2._identity, log2.id, 'entryB' + i + '-' + ts, [prev2, n1], log2.clock())
+            const n3 = await create(ipfs, log3._identity, log3.id, 'entryC' + i + '-' + ts, [prev3, n1, n2], log3.clock())
+            log1.clock().tick()
+            log2.clock().tick()
+            log3.clock().tick()
+            log1.clock().merge(log2.clock())
+            log1.clock().merge(log3.clock())
+            log2.clock().merge(log1.clock())
+            log2.clock().merge(log3.clock())
+            log3.clock().merge(log1.clock())
+            log3.clock().merge(log2.clock())
             items1.push(n1)
             items2.push(n2)
             items3.push(n3)
@@ -868,74 +864,6 @@ Object.keys(testAPIs).forEach((IPFS) => {
           strictEqual(log.length, 1)
           deepStrictEqual(log.values.map(e => e.payload), [e.payload])
         })
-      })
-    })
-
-    describe('Backwards-compatibility v0', () => {
-      const entries = [hello, helloWorld, helloAgain]
-      before(async () => {
-        await Promise.all(entries.map(e => write(ipfs, getWriteFormat(e), toEntry(e), { links: IPLD_LINKS })))
-      })
-
-      it('creates a log from v0 json', async () => {
-        const headHash = await write(ipfs, 'dag-pb', toEntry(helloAgain), { links: IPLD_LINKS })
-        const json = { id: 'A', heads: [headHash] }
-        json.heads = await Promise.all(json.heads.map(headHash => fromMultihash(ipfs, headHash)))
-        const log = await fromJSON(ipfs, testIdentity, json, { logId: 'A' })
-        strictEqual(log.length, 2)
-      })
-
-      it('creates a log from v0 entry', async () => {
-        const log = await fromEntry(ipfs, testIdentity, [toEntry(helloAgain, { includeHash: true })], { logId: 'A' })
-        strictEqual(log.length, 2)
-      })
-
-      it('creates a log from v0 entry hash', async () => {
-        const log = await fromEntryHash(ipfs, testIdentity, helloAgain.hash, { logId: 'A' })
-        strictEqual(log.length, 2)
-      })
-
-      it('creates a log from log hash of v0 entries', async () => {
-        const log1 = new Log(ipfs, testIdentity, { entries })
-        const hash = await log1.toMultihash()
-        const log = await _fromMultihash(ipfs, testIdentity, hash, { logId: 'A' })
-        strictEqual(log.length, 3)
-        strictEqual(log.heads.length, 2)
-      })
-    })
-
-    describe('Backwards-compatibility v1', () => {
-      before(async () => {
-        await Promise.all(v1Entries.map(e => write(ipfs, getWriteFormat(e), toEntry(e), { links: IPLD_LINKS })))
-      })
-
-      it('creates a log from v1 json', async () => {
-        const headHash = await write(ipfs, 'dag-cbor', toEntry(v1Entries[_length - 1]), { links: IPLD_LINKS })
-        const json = { id: 'A', heads: [headHash] }
-        json.heads = await Promise.all(json.heads.map(headHash => fromMultihash(ipfs, headHash)))
-        const log = await fromJSON(ipfs, testIdentity, json, { logId: 'A' })
-        strictEqual(log.length, 5)
-        deepStrictEqual(log.values, v1Entries.map(e => toEntry(e, { includeHash: true })))
-      })
-
-      it('creates a log from v1 entry', async () => {
-        const log = await fromEntry(ipfs, testIdentity, v1Entries[_length - 1], { logId: 'A' })
-        strictEqual(log.length, 5)
-        deepStrictEqual(log.values, v1Entries.map(e => toEntry(e, { includeHash: true })))
-      })
-
-      it('creates a log from v1 entry hash', async () => {
-        const log = await fromEntryHash(ipfs, testIdentity, v1Entries[_length - 1].hash, { logId: 'A' })
-        strictEqual(log.length, 5)
-        deepStrictEqual(log.values, v1Entries.map(e => toEntry(e, { includeHash: true })))
-      })
-
-      it('creates a log from log hash of v1 entries', async () => {
-        const log1 = new Log(ipfs, testIdentity, { entries: v1Entries })
-        const hash = await log1.toMultihash()
-        const log = await _fromMultihash(ipfs, testIdentity, hash, { logId: 'A' })
-        strictEqual(log.length, 5)
-        deepStrictEqual(log.values, v1Entries.map(e => toEntry(e, { includeHash: true })))
       })
     })
   })

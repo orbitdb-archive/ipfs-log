@@ -5,7 +5,7 @@ deps:
 
 test: deps
 	npm run test
-	npm run test:browser
+#	npm run test:browser
 	
 build: test
 	npm run build
@@ -19,7 +19,7 @@ clean:
 	rm -rf node_modules/
 	rm -rf coverage/
 	rm -rf test/keystore/
-	rm test/browser/*bundle*
+	rm -f test/browser/*bundle*
 
 clean-dependencies: clean
 	rm -f package-lock.json

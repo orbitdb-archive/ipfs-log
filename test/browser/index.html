@@ -2,19 +2,19 @@
 <head>
     <meta charset="utf-8">
     <title>Mocha Tests</title>
-    <link href="https://unpkg.com/mocha@5.2.0/mocha.css" rel="stylesheet" />
-    <script src="https://unpkg.com/mocha@5.2.0/mocha.js"></script>
+    <link href="https://unpkg.com/mocha@10.2.0/mocha.css" rel="stylesheet" />
+    <script src="https://unpkg.com/mocha@10.2.0/mocha.js"></script>
 </head>
 <body>
 <div id="mocha"></div>
 
 <script>
-  mocha.setup({ ui: "bdd", globals: ['sprintf', 'vsprintf'] });
+  mocha.setup({ ui: "bdd", globals: ['sprintf', 'vsprintf'] })
+  mocha.checkLeaks()
 </script>
 <script src="./bundle.js"></script>
 <script>
-  mocha.checkLeaks()
-  mocha.run();
+  mocha.run()
 </script>
 
 </body>
