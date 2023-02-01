@@ -15,3 +15,6 @@ examples/browser/ipfs.min.js
 examples/browser/ipfslog.min.js
 .nyc_output
 lib/es5
+keystore/
+keys_1/
+keys_2/

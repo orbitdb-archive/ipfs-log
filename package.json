@@ -28,6 +28,7 @@
   "devDependencies": {
     "@babel/cli": "^7.20.7",
     "@babel/core": "^7.20.12",
+    "babel-eslint": "^10.1.0",
     "babel-loader": "^9.1.2",
     "c8": "^7.12.0",
     "fs-extra": "^11.1.0",
@@ -50,7 +51,8 @@
   "standard": {
     "env": "mocha",
     "ignore": [
-      "docs/"
+      "docs/",
+      "test/fixtures/orbit-db-identity-keys.js"
     ]
   },
   "contributors": [
@@ -69,7 +71,7 @@
     "adam-palazzo"
   ],
   "scripts": {
-    "test": "TEST=js c8 mocha",
+    "test": "TEST=js c8 mocha --exit --bail",
     "test:browser": "npm run build:tests && mocha-headless-chrome -t 360000 -f ./test/browser/index.html -a no-sandbox",
     "build": "npm run build:dist",
     "build:docs": "jsdoc src/ -d docs --readme README.md",
