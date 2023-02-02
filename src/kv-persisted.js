@@ -6,7 +6,7 @@ const KeyValuePersisted = async ({ KeyValue, OpLog, Database, ipfs, identity, da
   const keyValueStore = await KeyValue({ OpLog, Database, ipfs, identity, databaseId, accessController, storage })
   const { events, log } = keyValueStore
 
-  const path = `./${identity.id}/${databaseId}_index`
+  const path = `./${identity.id}/${databaseId}/_index`
   const index = new Level(path, { valueEncoding })
   await index.open()
 
@@ -45,16 +45,19 @@ const KeyValuePersisted = async ({ KeyValue, OpLog, Database, ipfs, identity, da
     }
   }
 
+  // TODO: all()
+
   const close = async () => {
     events.off('update', updateIndex(index))
     await index.close()
     await keyValueStore.close()
   }
 
+  // TOD: rename to clear()
   const drop = async () => {
     events.off('update', updateIndex(index))
     await index.clear()
-    await keyValueStore.clear()
+    await keyValueStore.drop()
   }
 
   // Listen for update events from the database and update the index on every update
@@ -64,6 +67,7 @@ const KeyValuePersisted = async ({ KeyValue, OpLog, Database, ipfs, identity, da
     ...keyValueStore,
     get,
     iterator,
+    // TODO: all,
     close,
     drop
   }

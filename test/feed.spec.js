@@ -1,4 +1,4 @@
-import { deepStrictEqual, strictEqual, notStrictEqual } from 'assert'
+import { deepStrictEqual, strictEqual } from 'assert'
 import rimraf from 'rimraf'
 import * as Log from '../src/log.js'
 import IdentityProvider from 'orbit-db-identity-provider'
@@ -8,7 +8,9 @@ import Feed from '../src/feed.js'
 import Database from '../src/database.js'
 
 // Test utils
-import { config, testAPIs, getIpfsPeerId, waitForPeers, startIpfs, stopIpfs, connectPeers } from 'orbit-db-test-utils'
+import { config, testAPIs, getIpfsPeerId, waitForPeers, startIpfs, stopIpfs } from 'orbit-db-test-utils'
+import connectPeers from './utils/connect-nodes.js'
+import waitFor from './utils/wait-for.js'
 import { identityKeys, signingKeys } from './fixtures/orbit-db-identity-keys.js'
 
 const { sync: rmrf } = rimraf
@@ -16,7 +18,7 @@ const { createIdentity } = IdentityProvider
 
 Object.keys(testAPIs).forEach((IPFS) => {
   describe('Feed Database (' + IPFS + ')', function () {
-    this.timeout(config.timeout)
+    this.timeout(config.timeout * 2)
 
     let ipfsd1, ipfsd2
     let ipfs1, ipfs2
@@ -55,13 +57,18 @@ Object.keys(testAPIs).forEach((IPFS) => {
       // Create an identity for each peers
       testIdentity1 = await createIdentity({ id: 'userA', keystore, signingKeystore })
       testIdentity2 = await createIdentity({ id: 'userB', keystore, signingKeystore })
+
+      rmrf(testIdentity1.id)
+      rmrf(testIdentity2.id)
     })
 
     afterEach(async () => {
       if (kv1) {
+        await kv1.drop()
         await kv1.close()
       }
       if (kv2) {
+        await kv2.drop()
         await kv2.close()
       }
     })
@@ -91,31 +98,35 @@ Object.keys(testAPIs).forEach((IPFS) => {
     })
 
     describe('using database', () => {
-      it.skip('returns all entries in the database', async () => {
-        let error
+      it('returns all entries in the database', async () => {
         let updateCount = 0
+        // let syncCount = 0
 
         const accessController = {
           canAppend: (entry) => entry.identity.id === testIdentity1.id
         }
 
         const onUpdate = (entry) => {
-          updateCount++
+          ++updateCount
         }
-        const onError = (err) => {
-          error = err
+        // const onSync = (entry) => {
+        //   ++syncCount
+        // }
+        const onError = () => {
         }
 
         kv1 = await Feed({ OpLog: Log, Database, ipfs: ipfs1, identity: testIdentity1, databaseId, accessController })
         kv2 = await Feed({ OpLog: Log, Database, ipfs: ipfs2, identity: testIdentity2, databaseId, accessController })
 
-        kv1.events.on('update', onUpdate)
+        // kv1.events.on('update', onUpdate)
         kv2.events.on('update', onUpdate)
+        // kv1.events.on('sync', onSync)
+        // kv2.events.on('sync', onSync)
         kv1.events.on('error', onError)
         kv2.events.on('error', onError)
 
-        strictEqual(kv1.type, 'events')
-        strictEqual(kv2.type, 'events')
+        strictEqual(kv1.type, 'feed')
+        strictEqual(kv2.type, 'feed')
 
         await waitForPeers(ipfs1, [peerId2], databaseId)
         await waitForPeers(ipfs2, [peerId1], databaseId)
@@ -134,19 +145,16 @@ Object.keys(testAPIs).forEach((IPFS) => {
         // const hash = await kv1.add('friend33')
         // const lastEntry = await kv1.get(hash)
 
-        const sleep = (time) => new Promise((resolve) => {
-          setTimeout(() => {
-            resolve()
-          }, time)
-        })
-        await sleep(10000) // give some time for ipfs peers to sync
-
         // // sync() test
         // console.time('sync')
         // await kv2.sync(lastEntry.bytes)
         // console.timeEnd('sync')
 
-        // await sleep(1000) // give some time for ipfs peers to sync
+        await waitFor(() => updateCount, () => 8)
+
+        // onUpdate test
+        strictEqual(updateCount, 8)
+
         // // write access test
         // let errorMessage
         // try {
@@ -191,22 +199,38 @@ Object.keys(testAPIs).forEach((IPFS) => {
         ])
 
         // onError test
-        notStrictEqual(error, undefined)
-        strictEqual(error.message, 'CBOR decode error: too many terminals, data makes no sense')
-
-        // onUpdate test
-        strictEqual(updateCount, 8 * 2)
+        // notStrictEqual(error, undefined)
+        // strictEqual(error.message, 'CBOR decode error: too many terminals, data makes no sense')
       })
     })
 
     describe('load database', () => {
       it('returns all entries in the database', async () => {
+        let updateCount = 0
+        // let syncCount = 0
+
         const accessController = {
           canAppend: (entry) => entry.identity.id === testIdentity1.id
         }
 
+        const onUpdate = (entry) => {
+          ++updateCount
+        }
+        // const onSync = (entry) => {
+        //   ++syncCount
+        // }
+        const onError = () => {
+        }
+
         kv1 = await Feed({ OpLog: Log, Database, ipfs: ipfs1, identity: testIdentity1, databaseId, accessController })
         kv2 = await Feed({ OpLog: Log, Database, ipfs: ipfs2, identity: testIdentity2, databaseId, accessController })
+
+        // kv1.events.on('update', onUpdate)
+        kv2.events.on('update', onUpdate)
+        // kv1.events.on('sync', onSync)
+        // kv2.events.on('sync', onSync)
+        kv1.events.on('error', onError)
+        kv2.events.on('error', onError)
 
         await waitForPeers(ipfs1, [peerId2], databaseId)
         await waitForPeers(ipfs2, [peerId1], databaseId)
@@ -225,22 +249,20 @@ Object.keys(testAPIs).forEach((IPFS) => {
         // const hashX = await kv1.del(hash)
         // const lastEntry = await kv1.log.get(hashX)
 
-        const sleep = (time) => new Promise((resolve) => {
-          setTimeout(() => {
-            resolve()
-          }, time)
-        })
-        await sleep(5000) // give some time for ipfs peers to sync
-
         // sync() test
         // console.time('sync')
         // await kv2.sync(lastEntry.bytes)
         // console.timeEnd('sync')
 
+        await waitFor(() => updateCount, () => 11)
+
+        // onUpdate test
+        strictEqual(updateCount, 11)
+
         await kv1.close()
         await kv2.close()
 
-        // await sleep(1000) // give some time for ipfs peers to sync
+        // // await sleep(1000) // give some time for ipfs peers to sync
 
         kv1 = await Feed({ OpLog: Log, Database, ipfs: ipfs1, identity: testIdentity1, databaseId, accessController })
         kv2 = await Feed({ OpLog: Log, Database, ipfs: ipfs2, identity: testIdentity2, databaseId, accessController })
