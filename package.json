@@ -1,6 +1,6 @@
 {
   "name": "ipfs-log",
-  "version": "6.0.0",
+  "version": "5.4.2",
   "type": "module",
   "description": "Append-only log CRDT on IPFS",
   "main": "src/log.js",
@@ -20,42 +20,28 @@
     "crdt"
   ],
   "dependencies": {
-    "json-stringify-deterministic": "^1.0.8",
-    "orbit-db-identity-provider": "^0.5.0",
-    "orbit-db-io": "^3.0.0",
-    "p-do-whilst": "^2.0.0",
-    "p-each-series": "^3.0.0",
-    "p-map": "^5.5.0",
-    "p-whilst": "^3.0.0"
+    "@ipld/dag-cbor": "^9.0.0",
+    "lru": "^3.1.0",
+    "multiformats": "^11.0.1",
+    "orbit-db-identity-provider": "next"
   },
   "devDependencies": {
     "@babel/cli": "^7.20.7",
     "@babel/core": "^7.20.12",
-    "@babel/plugin-syntax-object-rest-spread": "~7.8.3",
-    "@babel/plugin-transform-modules-commonjs": "^7.20.11",
-    "@babel/plugin-transform-runtime": "^7.19.6",
-    "@babel/preset-env": "^7.20.2",
-    "@babel/runtime": "^7.20.7",
-    "@mapbox/node-pre-gyp": "^1.0.10",
-    "assert": "^2.0.0",
-    "babel-loader": "~9.1.2",
+    "babel-eslint": "^10.1.0",
+    "babel-loader": "^9.1.2",
     "c8": "^7.12.0",
-    "eslint": "^8.32.0",
     "fs-extra": "^11.1.0",
     "http-server": "^14.1.1",
-    "is-node": "^1.0.2",
+    "ipfs": "^0.66.0",
+    "it-all": "^2.0.0",
     "jsdoc": "^4.0.0",
-    "json-loader": "~0.5.7",
+    "json-loader": "^0.5.7",
     "level": "^8.0.0",
     "mocha": "^10.2.0",
     "mocha-headless-chrome": "^4.0.0",
-    "node-polyfill-webpack-plugin": "^2.0.1",
-    "orbit-db-benchmark-runner": "^2.0.1",
-    "orbit-db-keystore": "^2.0.0",
-    "orbit-db-storage-adapter": "^0.9.0",
-    "orbit-db-test-utils": "^3.0.0",
+    "orbit-db-test-utils": "next",
     "path-browserify": "^1.0.1",
-    "process": "^0.11.10",
     "rimraf": "^4.1.0",
     "standard": "~17.0.0",
     "stream-browserify": "^3.0.0",
@@ -65,8 +51,8 @@
   "standard": {
     "env": "mocha",
     "ignore": [
-      "lib/es5/",
-      "docs/"
+      "docs/",
+      "test/fixtures/orbit-db-identity-keys.js"
     ]
   },
   "contributors": [
@@ -85,23 +71,15 @@
     "adam-palazzo"
   ],
   "scripts": {
-    "test": "TEST=all c8 mocha",
+    "test": "TEST=js c8 mocha --exit",
     "test:browser": "npm run build:tests && mocha-headless-chrome -t 360000 -f ./test/browser/index.html -a no-sandbox",
-    "build": "npm run build:es5 && npm run build:examples && npm run build:dist",
+    "build": "npm run build:dist",
     "build:docs": "jsdoc src/ -d docs --readme README.md",
-    "build:tests": "webpack --config ./conf/webpack.tests.config.js --mode production",
+    "build:tests": "webpack --config ./conf/webpack.tests.config.js",
     "build:examples": "webpack --config ./conf/webpack.example.config.js",
-    "build:dist": "webpack --config ./conf/webpack.config.js --mode production",
-    "build:es5": "babel src --out-dir ./lib/es5/ --presets @babel/preset-env --plugins @babel/plugin-transform-runtime",
+    "build:dist": "webpack --config ./conf/webpack.config.js",
     "lint": "standard --env=mocha",
     "lint:fix": "standard --env=mocha --fix",
-    "benchmark": "nyc benchmark-runner -r -b --baselineLimit 1000",
-    "benchmark:stress": "benchmark-runner -r --grep stress",
     "examples": "http-server examples/browser"
-  },
-  "localMaintainers": [
-    "haad <haad@haja.io>",
-    "hajamark <mark@haja.io>",
-    "shamb0t <shams@haja.io>"
-  ]
+  }
 }
