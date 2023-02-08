@@ -8,7 +8,8 @@ import Documents from '../src/documents.js'
 import Database from '../src/database.js'
 
 // Test utils
-import { config, testAPIs, getIpfsPeerId, waitForPeers, startIpfs, stopIpfs } from 'orbit-db-test-utils'
+// import { config, testAPIs, getIpfsPeerId, waitForPeers, startIpfs, stopIpfs } from 'orbit-db-test-utils'
+import { config, testAPIs, startIpfs, stopIpfs } from 'orbit-db-test-utils'
 import connectPeers from './utils/connect-nodes.js'
 import { identityKeys, signingKeys } from './fixtures/orbit-db-identity-keys.js'
 
@@ -22,10 +23,9 @@ Object.keys(testAPIs).forEach((IPFS) => {
     let ipfsd1, ipfsd2
     let ipfs1, ipfs2
     let keystore, signingKeystore
-    let peerId1, peerId2
+    // let peerId1, peerId2
     let testIdentity1, testIdentity2
     let db1, db2
-    let accessController
 
     const databaseId = 'documents-AAA'
 
@@ -39,8 +39,8 @@ Object.keys(testAPIs).forEach((IPFS) => {
       await connectPeers(ipfs1, ipfs2)
 
       // Get the peer IDs
-      peerId1 = await getIpfsPeerId(ipfs1)
-      peerId2 = await getIpfsPeerId(ipfs2)
+      // peerId1 = await getIpfsPeerId(ipfs1)
+      // peerId2 = await getIpfsPeerId(ipfs2)
 
       keystore = new Keystore('./keys_1')
       await keystore.open()
@@ -57,13 +57,13 @@ Object.keys(testAPIs).forEach((IPFS) => {
       // Create an identity for each peers
       testIdentity1 = await createIdentity({ id: 'userA', keystore, signingKeystore })
       testIdentity2 = await createIdentity({ id: 'userB', keystore, signingKeystore })
-
-      const accessController = {
-        canAppend: (entry) => entry.identity.id === testIdentity1.id
-      }
     })
 
     beforeEach(async () => {
+      const accessController = {
+        canAppend: (entry) => entry.identity.id === testIdentity1.id
+      }
+
       db1 = await Documents({ OpLog: Log, Database, ipfs: ipfs1, identity: testIdentity1, databaseId, accessController })
     })
 
@@ -127,14 +127,14 @@ Object.keys(testAPIs).forEach((IPFS) => {
       it('throws an error when deleting a non-existent document', async () => {
         const key = 'i do not exist'
         let err
-        
+
         try {
           await db1.del(key)
         } catch (e) {
           err = e
         }
-        
-        strictEqual(err.message, `No document with key \'${key}\' in the database`)
+
+        strictEqual(err.message, `No document with key '${key}' in the database`)
       })
 
       it('queries for a document', async () => {
