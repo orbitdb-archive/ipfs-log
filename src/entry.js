@@ -49,7 +49,7 @@ const create = async (identity, id, payload, clock = null, next = [], refs = [])
   const signature = await identity.provider.sign(identity, bytes)
 
   entry.key = identity.publicKey
-  entry.identity = identity.toJSON()
+  entry.identity = identity.hash
   entry.sig = signature
 
   return _encodeEntry(entry)

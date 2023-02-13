@@ -1,10 +1,12 @@
-import { strictEqual } from 'assert'
+import { strictEqual, deepStrictEqual } from 'assert'
 import rimraf from 'rimraf'
 import { copy } from 'fs-extra'
 import Entry from '../src/entry.js'
-import IdentityProvider from 'orbit-db-identity-provider'
+import IdentityProvider from '../src/identities/identities.js'
 import Keystore from '../src/Keystore.js'
-import { config, testAPIs } from 'orbit-db-test-utils'
+import { config, testAPIs, startIpfs, stopIpfs } from 'orbit-db-test-utils'
+// import IdentityStorage from '../src/identity-storage.js'
+// import IPFSBlockStorage from '../src/ipfs-block-storage.js'
 
 const { sync: rmrf } = rimraf
 const { createIdentity } = IdentityProvider
@@ -17,16 +19,20 @@ Object.keys(testAPIs).forEach((IPFS) => {
     const { identityKeyFixtures, signingKeyFixtures, identityKeysPath, signingKeysPath } = config
 
     let testIdentity
-    let keystore, signingKeystore
+    let keystore, signingKeystore, ipfsBlockStore, identityStore
+    let ipfsd, ipfs
 
     before(async () => {
+      ipfsd = await startIpfs(IPFS, config.daemon1)
+      ipfs = ipfsd.api
+        
       await copy(identityKeyFixtures, identityKeysPath)
       await copy(signingKeyFixtures, signingKeysPath)
 
       keystore = new Keystore(identityKeysPath)
       signingKeystore = new Keystore(signingKeysPath)
-
-      testIdentity = await createIdentity({ id: 'userA', keystore, signingKeystore })
+      
+      testIdentity = await createIdentity({ id: 'userA', keystore, signingKeystore, ipfs })
     })
 
     after(async () => {
@@ -36,6 +42,10 @@ Object.keys(testAPIs).forEach((IPFS) => {
       rmrf(signingKeysPath)
       await keystore.close()
       await signingKeystore.close()
+      
+      if (ipfsd) {
+        await stopIpfs(ipfsd)
+      }
     })
 
     describe('create', () => {
@@ -64,6 +74,15 @@ Object.keys(testAPIs).forEach((IPFS) => {
         strictEqual(entry.next.length, 0)
         strictEqual(entry.refs.length, 0)
         // strictEqual(entry.hash, expectedHash)
+      })
+      
+      it.skip('retrieves the identity from an entry', async() => {
+        const expected = testIdentity.toJSON()
+        const payload = 'hello world'
+        const entry = await create(testIdentity, 'A', payload)
+        const entryIdentity = await identityStore.get(entry.identity)
+
+        deepStrictEqual(entryIdentity, expected)
       })
 
       it('creates a entry with payload and next', async () => {

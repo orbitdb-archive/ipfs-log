@@ -155,7 +155,7 @@ const Log = async (identity, { logId, logHeads, access, entryStorage, headsStora
     // Authorize the entry
     const canAppend = await access.canAppend(entry, identity.provider)
     if (!canAppend) {
-      throw new Error(`Could not append entry:\nKey "${identity.id}" is not allowed to write to the log`)
+      throw new Error(`Could not append entry:\nKey "${identity.hash}" is not allowed to write to the log`)
     }
 
     // The appended entry is now the latest head
@@ -216,7 +216,7 @@ const Log = async (identity, { logId, logHeads, access, entryStorage, headsStora
     // Verify if entry is allowed to be added to the log
     const canAppend = await access.canAppend(entry, identityProvider)
     if (!canAppend) {
-      throw new Error(`Could not append entry:\nKey "${entry.identity.id}" is not allowed to write to the log`)
+      throw new Error(`Could not append entry:\nKey "${entry.identity}" is not allowed to write to the log`)
     }
     // Verify signature for the entry
     const isValid = await Entry.verify(identityProvider, entry)
